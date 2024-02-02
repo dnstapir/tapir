@@ -69,3 +69,31 @@ func StringsToTagMask(ss []string) (TagMask, error) {
      }
      return res, nil
 }
+
+type Action uint8
+
+const (
+      NXDOMAIN Action = iota
+      NODATA
+      DROP
+      REDIRECT
+)
+
+func StringsToAction(ss []string) (Action, error) {
+     for _, s := range ss {
+     	 switch strings.ToLower(s) {
+	 case "nxdomain":
+	      return NXDOMAIN, nil
+ 	 case "nodata":
+ 	      return NODATA, nil
+ 	 case "drop":
+ 	      return DROP, nil
+ 	 case "redirect":
+ 	      return REDIRECT, nil
+	 default:
+	      log.Printf("Error: unknown RPZ action: \"%s\"", s)
+	      return 0, fmt.Errorf("Unknown tapir RPZ action: \"%s\"", s)
+	 }
+     }
+     return 0, nil
+}

@@ -91,6 +91,9 @@ type DebugResponse struct {
 	Whitelists map[string]*WBGlist
 	Blacklists map[string]*WBGlist
 	Greylists  map[string]*WBGlist
+	BlacklistedNames	map[string]bool
+	GreylistedNames		map[string]bool
+	RpzOutput		[]dns.RR
 	Msg        string
 	Error      bool
 	ErrorMsg   string
@@ -152,6 +155,7 @@ type Domain struct {
 	Name	string
 	Tags	[]string		// this should become a bit field in the future
 	Tagmask	TagMask			// here is the bitfield
+	Action	Action		// another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
 type MqttEngine struct {
