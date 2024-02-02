@@ -6,7 +6,6 @@ package tapir
 import (
 	"github.com/miekg/dns"
 	"log"
-	"strings"
 )
 
 func (zd *ZoneData) FindGlue(nsrrs RRset, dnssec_ok bool) *RRset {
