@@ -6,6 +6,7 @@ package tapir
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -69,13 +70,13 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 		}
 		if zd.Verbose && (count%100000 == 0) {
 			//		   zd.Logger.Printf("%d RRs transferred (total %d RRs kept)",
-			//				len(envelope.RR), len(zd.FilteredRRs)+zd.ApexLen)
+			//				len(envelope.RR), len(zd.BodyRRs)+zd.ApexLen)
 			zd.Logger.Printf("%d RRs transferred", len(envelope.RR))
 		}
 	}
 
-	//	zd.Logger.Printf("ZoneTransferIn: %s: dropped %d RRs (filter), kept %d apex RRs + %d FilteredRRs",
-	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.FilteredRRs))
+	//	zd.Logger.Printf("ZoneTransferIn: %s: dropped %d RRs (filter), kept %d apex RRs + %d BodyRRs",
+	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.BodyRRs))
 	zd.Logger.Printf("ZoneTransferIn: %s: dropped %d RRs (filter), kept %d apex RRs",
 		zd.ZoneName, zd.DroppedRRs, zd.ApexLen)
 
@@ -97,8 +98,15 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 
 func (zd *ZoneData) ZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
+	if zd.Verbose {
+		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zd.ZoneName,
+			len(zd.RRs), w.RemoteAddr().String())
+	}
+
 	zone := dns.Fqdn(zd.ZoneName)
-	zd.Sync()
+	if zd.ZoneType != RpzZone {
+		zd.Sync()
+	}
 
 	if zd.Verbose {
 		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zone,
@@ -119,31 +127,52 @@ func (zd *ZoneData) ZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, erro
 	send_count := 0
 	env := dns.Envelope{}
 
-	env.RR = append(env.RR, dns.RR(&zd.SOA))
-	total_sent := 1
+	//	env.RR = append(env.RR, dns.RR(&zd.SOA))
+	//	total_sent := 1
+	var total_sent int
 
-	for _, ownerdata := range zd.Owners {
-		for rrt, rrset := range ownerdata.RRtypes {
-			if ownerdata.Name == zd.ZoneName {
-				zd.Logger.Printf("Apex: %s\t%s\n", zd.ZoneName, dns.TypeToString[rrt])
+	switch zd.ZoneType {
+	case RpzZone:
+		env.RR = append(env.RR, dns.RR(&zd.SOA))
+		env.RR = append(env.RR, zd.NSrrs...)
+		for _, rr := range zd.RRs {
+			env.RR = append(env.RR, rr) // should do proper slice magic instead
+			count++
+			if count >= 500 {
+				send_count++
+				total_sent += len(env.RR)
+				// fmt.Printf("Sending %d RRs\n", len(env.RR))
+				outbound_xfr <- &env
+				// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
+				env = dns.Envelope{}
+				count = 0
 			}
+		}
 
-			switch rrt {
-			case dns.TypeSOA, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
-				continue
-			}
+	case SliceZone:
+		for _, ownerdata := range zd.Owners {
+			for rrt, rrset := range ownerdata.RRtypes {
+				if ownerdata.Name == zd.ZoneName {
+					zd.Logger.Printf("Apex: %s\t%s\n", zd.ZoneName, dns.TypeToString[rrt])
+				}
 
-			for _, rr := range rrset.RRs {
-				env.RR = append(env.RR, rr) // should do proper slice magic instead
-				count++
-				if count >= 500 {
-					send_count++
-					total_sent += len(env.RR)
-					// fmt.Printf("Sending %d RRs\n", len(env.RR))
-					outbound_xfr <- &env
-					// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
-					env = dns.Envelope{}
-					count = 0
+				switch rrt {
+				case dns.TypeSOA, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
+					continue
+				}
+
+				for _, rr := range rrset.RRs {
+					env.RR = append(env.RR, rr) // should do proper slice magic instead
+					count++
+					if count >= 500 {
+						send_count++
+						total_sent += len(env.RR)
+						// fmt.Printf("Sending %d RRs\n", len(env.RR))
+						outbound_xfr <- &env
+						// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
+						env = dns.Envelope{}
+						count = 0
+					}
 				}
 			}
 		}
@@ -172,13 +201,25 @@ func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("ReadZoneFile: Error: failed to read %s: %v", filename, err)
 	}
+
+	return zd.ReadZone(bufio.NewReader(f))
+}
+
+func (zd *ZoneData) ReadZoneString(s string) (uint32, error) {
+	zd.Logger.Printf("ReadZoneString: zone: %s", zd.ZoneName)
+
+	return zd.ReadZone(strings.NewReader(s))
+}
+
+func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
+
 	if zd.ZoneType == 2 || zd.ZoneType == 3 {
 		// zd.Data = make(map[string]map[uint16][]dns.RR, 30)
 		zd.Data = make(map[string]OwnerData, 30)
 	}
 
 	var first_soa *dns.SOA
-	zp := dns.NewZoneParser(bufio.NewReader(f), "", "")
+	zp := dns.NewZoneParser(r, "", "")
 	zp.SetIncludeAllowed(true)
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
@@ -197,8 +238,8 @@ func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
 
 	zd.XfrType = "axfr" // XXX: technically not true, but the distinction is between complete zone and "diff"
 
-	//	zd.Logger.Printf("ReadZoneFile: %s: dropped %d RRs (filter), kept %d apex RRs + %d FilteredRRs",
-	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.FilteredRRs))
+	//	zd.Logger.Printf("ReadZoneFile: %s: dropped %d RRs (filter), kept %d apex RRs + %d BodyRRs",
+	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.BodyRRs))
 	zd.Logger.Printf("ReadZoneFile: %s: dropped %d RRs (filter), kept %d apex RRs",
 		zd.ZoneName, zd.DroppedRRs, zd.ApexLen)
 
@@ -206,13 +247,13 @@ func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
 }
 
 func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
-	if !zd.RRKeepFunc(rr.Header().Rrtype) {
+	if zd.RRKeepFunc != nil && !zd.RRKeepFunc(rr.Header().Rrtype) {
 		zd.DroppedRRs++
 		return
 	}
 	zd.KeptRRs++
 
-	if !zd.RRParseFunc(&rr, zd) {
+	if zd.RRParseFunc != nil && !zd.RRParseFunc(&rr, zd) {
 		zd.DroppedRRs++
 		return
 	}
@@ -367,6 +408,9 @@ func (zd *ZoneData) ComputeIndices() {
 		zd.Data = nil
 		zd.OwnerIndex = map[string]int{}
 		for i, od := range zd.Owners {
+			if zd.Debug {
+				zd.Logger.Printf("ComputeIndices: indexing %s", od.Name)
+			}
 			zd.OwnerIndex[od.Name] = i
 		}
 		soas := zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA]

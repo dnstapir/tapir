@@ -73,14 +73,17 @@ func StringsToTagMask(ss []string) (TagMask, error) {
 type Action uint8
 
 const (
-      NXDOMAIN Action = iota
+      NXDOMAIN Action = 1 << iota
       NODATA
       DROP
       REDIRECT
+      WHITELIST
+      UnknownAction
 )
 
-func StringsToAction(ss []string) (Action, error) {
-     for _, s := range ss {
+func (tn *TapirName) HasAction(action Action) bool { return tn.Action & action != 0 }
+
+func StringToAction(s string) (Action, error) {
      	 switch strings.ToLower(s) {
 	 case "nxdomain":
 	      return NXDOMAIN, nil
@@ -94,6 +97,5 @@ func StringsToAction(ss []string) (Action, error) {
 	      log.Printf("Error: unknown RPZ action: \"%s\"", s)
 	      return 0, fmt.Errorf("Unknown tapir RPZ action: \"%s\"", s)
 	 }
-     }
      return 0, nil
 }

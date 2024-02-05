@@ -97,7 +97,7 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 		return err
 	}
 	log.Printf("FetchFromUpstream: %s has %d apex RRs +  %d RRs",
-		zd.ZoneName, zonedata.ApexLen, len(zonedata.FilteredRRs))
+		zd.ZoneName, zonedata.ApexLen, len(zonedata.BodyRRs))
 
 	zonedata.Sync()
 
@@ -109,7 +109,7 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	zd.RRs = zonedata.RRs
 	zd.Owners = zonedata.Owners
 	zd.OwnerIndex = zonedata.OwnerIndex
-	zd.FilteredRRs = zonedata.FilteredRRs
+	zd.BodyRRs = zonedata.BodyRRs
 	zd.SOA = zonedata.SOA
 	zd.IncomingSerial = zd.SOA.Serial
 	zd.NSrrs = zonedata.NSrrs
@@ -130,24 +130,29 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 // zd.Sync() is used to ensure that the data in zd.SOA, zd.NSrrs, etc is reflected in the zd.RRs slice.
 // Typically used in preparation for a ZONEMD computation or an outbound zone transfer.
 func (zd *ZoneData) Sync() error {
-	// log.Printf("zd.Sync(): pre sync: there are %d RRs in FilteredRRs and %d RRs in RRs",
-	//			    len(zd.FilteredRRs), len(zd.RRs))
+	log.Printf("zd.Sync(): pre sync: there are %d RRs in BodyRRs and %d RRs in RRs",
+				    len(zd.BodyRRs), len(zd.RRs))
 	var rrs = []dns.RR{dns.RR(&zd.SOA)}
 	rrs = append(rrs, zd.NSrrs...)
 
-	if zd.ZoneType != 3 {
-		//		rrs = append(rrs, zd.FilteredRRs...)
-	} else {
+	switch zd.ZoneType {
+	case RpzZone:
+//	     rrs = []dns.RR{dns.RR(&zd.SOA)}
+//	     rrs = append(rrs, zd.NSrrs...)
+//	     rrs = append(rrs, body_rrs...)
+	case SliceZone:
 		for _, odmap := range zd.Data {
 			for _, rrl := range odmap.RRtypes {
 				rrs = append(rrs, rrl.RRs...)
 			}
 		}
+	default:
+		//		rrs = append(rrs, zd.BodyRRs...)
 	}
 
 	zd.RRs = rrs
-	// log.Printf("zd.Sync(): post sync: there are %d RRs in FilteredRRs and %d RRs in RRs",
-	//			    len(zd.FilteredRRs), len(zd.RRs))
+	// log.Printf("zd.Sync(): post sync: there are %d RRs in BodyRRs and %d RRs in RRs",
+	//			    len(zd.BodyRRs), len(zd.RRs))
 	return nil
 }
 

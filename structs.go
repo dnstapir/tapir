@@ -17,9 +17,18 @@ import (
 )
 
 
+type ZoneType uint8
+
+const (
+      XfrZone ZoneType = iota
+      MapZone
+      SliceZone
+      RpzZone
+)
+
 type ZoneData struct {
 	ZoneName   string
-	ZoneType   uint8 // 1 = "xfr", 2 = "map", 3 = "slice". An xfr zone only supports xfr related ops
+	ZoneType   ZoneType // 1 = "xfr", 2 = "map", 3 = "slice". An xfr zone only supports xfr related ops
 	Owners     Owners
 	OwnerIndex map[string]int
 	// Apex RRs
@@ -27,8 +36,8 @@ type ZoneData struct {
 	SOA     dns.SOA
 	NSrrs   []dns.RR // apex NS RRs
 	// Rest of zone
-	FilteredRRs RRArray // FilteredRRs should die
-	RRs         RRArray // FilteredRRs + ApexRRs
+	BodyRRs RRArray 
+	RRs         RRArray // BodyRRs + ApexRRs
 	// Data		map[string]map[uint16][]dns.RR	// map[owner]map[rrtype][]dns.RR
 	Data map[string]OwnerData // map[owner]map[rrtype][]dns.RR
 	// Other stuff
@@ -40,6 +49,7 @@ type ZoneData struct {
 	RRKeepFunc     func(uint16) bool
 	RRParseFunc    func(*dns.RR, *ZoneData) bool
 	Verbose        bool
+	Debug	       bool
 	RpzData	       map[string]string	// map[ownername]action. owner w/o rpz zone name
 }
 
@@ -88,11 +98,12 @@ type DebugResponse struct {
 //	ZoneData   ZoneData
 	OwnerIndex map[string]int
 	RRset      RRset
+	Lists	   map[string]map[string]*WBGlist
 	Whitelists map[string]*WBGlist
 	Blacklists map[string]*WBGlist
 	Greylists  map[string]*WBGlist
 	BlacklistedNames	map[string]bool
-	GreylistedNames		map[string]bool
+	GreylistedNames		map[string]*TapirName
 	RpzOutput		[]dns.RR
 	Msg        string
 	Error      bool
@@ -191,7 +202,7 @@ type WBGlist struct {
 	Name        string
 	Description string
 	Type        string // whitelist | blacklist | greylist
-	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
+//	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
 	SrcFormat   string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
 	Format	    string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
 	Datasource  string // file | xfr | mqtt | https | api | ...
@@ -212,5 +223,5 @@ type TapirName struct {
 	Tags	  []string // XXX: extremely wasteful, a bitfield would be better,
 	Tagmask	  TagMask  // bitfield
 	//      but don't know how many tags there can be
-	Action	  string  // NXDOMAIN|NODATA|DROP|...
+	Action	  Action  // bitfield NXDOMAIN|NODATA|DROP|...
 }
