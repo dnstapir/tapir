@@ -19,6 +19,7 @@ const (
       CdnTracker
       LikelyMalware
       LikelyBotnetCC
+      ChildPorn
       Foo
       Bar
       Baz
@@ -36,6 +37,17 @@ func (tm *TagMask) ClearTag(tag TagMask)    { *tm = *tm &^ tag }
 func (tm *TagMask) ToggleTag(tag TagMask)   { *tm = *tm ^ tag }
 func (tm *TagMask) HasTag(tag TagMask) bool { return *tm & tag != 0 }
 
+func (tm *TagMask) NumTags() int {
+     var res int
+     for i := 0 ; i < 32 ; i++ {
+	 if tm.HasTag(TagMask(1 << i)) {
+	    fmt.Printf("Bit %d is set\n", i)
+	    res++
+	 }
+     }
+     return res
+}
+
 func StringsToTagMask(ss []string) (TagMask, error) {
      var res TagMask
      for _, s := range ss {
@@ -44,16 +56,18 @@ func StringsToTagMask(ss []string) (TagMask, error) {
 	      res.SetTag(NewName)
  	 case "highvolume":
  	      res.SetTag(HighVolume)
- 	 case "badip":
+ 	 case "bad-ip":
  	      res.SetTag(BadIP)
  	 case "cdntracker":
  	      res.SetTag(CdnTracker)
- 	 case "likelymalware":
+ 	 case "likely-malware":
  	      res.SetTag(LikelyMalware)
- 	 case "likelybotnetcc":
+ 	 case "likely-botnetcc":
  	      res.SetTag(LikelyBotnetCC)
+ 	 case "childporn":
+ 	      res.SetTag(ChildPorn)
  	 case "foo":
- 	      res = SetTag(res, Foo)
+ 	      res.SetTag(Foo)
  	 case "bar":
  	      res.SetTag(Bar)
 	 case "baz":
@@ -78,6 +92,7 @@ const (
       DROP
       REDIRECT
       WHITELIST
+      PASSTHRU
       UnknownAction
 )
 
@@ -85,6 +100,8 @@ func (tn *TapirName) HasAction(action Action) bool { return tn.Action & action !
 
 func StringToAction(s string) (Action, error) {
      	 switch strings.ToLower(s) {
+	 case "whitelist", "passthru":
+	      return WHITELIST, nil
 	 case "nxdomain":
 	      return NXDOMAIN, nil
  	 case "nodata":
@@ -99,3 +116,11 @@ func StringToAction(s string) (Action, error) {
 	 }
      return 0, nil
 }
+
+var ActionToCNAMETarget = map[Action]string{
+				NXDOMAIN:	".",
+				NODATA:		"*.",
+				DROP:		"rpz-drop.",
+				WHITELIST:	"rpz-passthru.",
+				REDIRECT:	"what-to-do-about-this",
+    			  }

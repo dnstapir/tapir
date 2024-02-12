@@ -11,19 +11,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/smhanov/dawg"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/miekg/dns"
+	"github.com/smhanov/dawg"
+	"github.com/Pashugan/trie"
 )
-
 
 type ZoneType uint8
 
 const (
-      XfrZone ZoneType = iota
-      MapZone
-      SliceZone
-      RpzZone
+	XfrZone ZoneType = iota
+	MapZone
+	SliceZone
+	RpzZone
 )
 
 type ZoneData struct {
@@ -31,15 +31,18 @@ type ZoneData struct {
 	ZoneType   ZoneType // 1 = "xfr", 2 = "map", 3 = "slice". An xfr zone only supports xfr related ops
 	Owners     Owners
 	OwnerIndex map[string]int
-	// Apex RRs
-	ApexLen int // # RRs that are stored separately
-	SOA     dns.SOA
-	NSrrs   []dns.RR // apex NS RRs
+	ApexLen    int // # RRs that are stored separately
+	SOA        dns.SOA
+	NSrrs      []dns.RR // apex NS RRs
+
 	// Rest of zone
-	BodyRRs RRArray 
-	RRs         RRArray // BodyRRs + ApexRRs
+	BodyRRs RRArray
+	RRs     RRArray // BodyRRs + ApexRRs
+
 	// Data		map[string]map[uint16][]dns.RR	// map[owner]map[rrtype][]dns.RR
-	Data map[string]OwnerData // map[owner]map[rrtype][]dns.RR
+	Data   map[string]OwnerData // map[owner]map[rrtype][]dns.RR
+	RpzMap map[string]*RpzName    // map[owner]map[rrtype][]dns.RR
+
 	// Other stuff
 	DroppedRRs     int
 	KeptRRs        int
@@ -49,8 +52,8 @@ type ZoneData struct {
 	RRKeepFunc     func(uint16) bool
 	RRParseFunc    func(*dns.RR, *ZoneData) bool
 	Verbose        bool
-	Debug	       bool
-	RpzData	       map[string]string	// map[ownername]action. owner w/o rpz zone name
+	Debug          bool
+	RpzData        map[string]string // map[ownername]action. owner w/o rpz zone name
 }
 
 type Owners []OwnerData
@@ -71,7 +74,7 @@ type CommandPost struct {
 	ListType  string
 	Policy    string // RPZ policy
 	Action    string // RPZ action (OBE)
-	RpzSource string // corresponds with the sourceid in tem.conf
+	RpzSource string // corresponds with the sourceid in tem.yaml
 }
 
 type CommandResponse struct {
@@ -92,22 +95,22 @@ type DebugPost struct {
 }
 
 type DebugResponse struct {
-	Time       time.Time
-	Status     string
-	Zone       string
-//	ZoneData   ZoneData
-	OwnerIndex map[string]int
-	RRset      RRset
-	Lists	   map[string]map[string]*WBGlist
-	Whitelists map[string]*WBGlist
-	Blacklists map[string]*WBGlist
-	Greylists  map[string]*WBGlist
-	BlacklistedNames	map[string]bool
-	GreylistedNames		map[string]*TapirName
-	RpzOutput		[]dns.RR
-	Msg        string
-	Error      bool
-	ErrorMsg   string
+	Time   time.Time
+	Status string
+	Zone   string
+	//	ZoneData   ZoneData
+	OwnerIndex       map[string]int
+	RRset            RRset
+	Lists            map[string]map[string]*WBGlist
+	Whitelists       map[string]*WBGlist
+	Blacklists       map[string]*WBGlist
+	Greylists        map[string]*WBGlist
+	BlacklistedNames map[string]bool
+	GreylistedNames  map[string]*TapirName
+	RpzOutput        []RpzName
+	Msg              string
+	Error            bool
+	ErrorMsg         string
 }
 
 type Api struct {
@@ -144,29 +147,29 @@ type PingResponse struct {
 }
 
 type MqttPkg struct {
-	Type      string	// text | data, only used on sender side
-	Error     bool   	// only used for sub.
-	ErrorMsg  string 	// only used for sub.
+	Type      string // text | data, only used on sender side
+	Error     bool   // only used for sub.
+	ErrorMsg  string // only used for sub.
 	Msg       string
 	Data      TapirMsg
-	TimeStamp time.Time	// time mqtt packet was sent or received, mgmt by MQTT Engine
+	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
 type TapirMsg struct {
-     	SrcName	  string	// must match a defined source
-	MsgType   string	// "intelupdate", "reset", ...
-	ListType  string	// "{white|black|grey}list"
+	SrcName   string // must match a defined source
+	MsgType   string // "intelupdate", "reset", ...
+	ListType  string // "{white|black|grey}list"
 	Added     []Domain
 	Removed   []Domain
 	Msg       string
-	TimeStamp time.Time	// time encoded in the payload by the sender, not touched by MQTT
+	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
 }
 
 type Domain struct {
-	Name	string
-	Tags	[]string		// this should become a bit field in the future
-	Tagmask	TagMask			// here is the bitfield
-	Action	Action		// another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
+	Name    string
+	Tags    []string // this should become a bit field in the future
+	Tagmask TagMask  // here is the bitfield
+	Action  Action   // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
 type MqttEngine struct {
@@ -202,26 +205,34 @@ type WBGlist struct {
 	Name        string
 	Description string
 	Type        string // whitelist | blacklist | greylist
-//	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
-	SrcFormat   string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
-	Format	    string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
-	Datasource  string // file | xfr | mqtt | https | api | ...
-	Filename    string
-	Dawgf       dawg.Finder
+	//	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
+	SrcFormat  string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
+	Format     string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
+	Datasource string // file | xfr | mqtt | https | api | ...
+	Filename   string
+	Dawgf      dawg.Finder
 
 	// greylist sources needs more complex stuff here:
-//	GreyNames   map[string]GreyName
+	//	GreyNames   map[string]GreyName
 	RpzZoneName string
 	RpzUpstream string
 	RpzSerial   int
-	Names	    map[string]TapirName	// XXX: same data as in ZoneData.RpzData, should only keep one
+	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
+	Trie	    trie.Trie
 }
 
 type TapirName struct {
-//	SrcFormat string          // "tapir-feed-v1" | ...
-	Name	  string
-	Tags	  []string // XXX: extremely wasteful, a bitfield would be better,
-	Tagmask	  TagMask  // bitfield
+	//	SrcFormat string          // "tapir-feed-v1" | ...
+	Name    string
+	Tags    []string // XXX: extremely wasteful, a bitfield would be better,
+	Tagmask TagMask  // bitfield
+	NumTags uint8
 	//      but don't know how many tags there can be
-	Action	  Action  // bitfield NXDOMAIN|NODATA|DROP|...
+	Action Action // bitfield NXDOMAIN|NODATA|DROP|...
+}
+
+type RpzName struct {
+     Name    string
+     RR	     *dns.RR
+     Action  Action
 }

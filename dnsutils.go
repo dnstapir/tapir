@@ -135,8 +135,9 @@ func (zd *ZoneData) ZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, erro
 	case RpzZone:
 		env.RR = append(env.RR, dns.RR(&zd.SOA))
 		env.RR = append(env.RR, zd.NSrrs...)
-		for _, rr := range zd.RRs {
-			env.RR = append(env.RR, rr) // should do proper slice magic instead
+		// for _, rr := range zd.RRs {
+		for _, rpzn := range zd.RpzMap {
+			env.RR = append(env.RR, *rpzn.RR) // should do proper slice magic instead
 			count++
 			if count >= 500 {
 				send_count++

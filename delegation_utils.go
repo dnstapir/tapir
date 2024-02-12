@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-func (zd *ZoneData) FindGlue(nsrrs RRset, dnssec_ok bool) *RRset {
+func (zd *ZoneData) FindGlue(nsrrs RRset) *RRset {
 	zd.Logger.Printf("FindGlue: nsrrs: %v", nsrrs)
 	var glue, maybe_glue RRset
 	var nsname string
