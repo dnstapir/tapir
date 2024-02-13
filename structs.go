@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Pashugan/trie"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/miekg/dns"
 	"github.com/smhanov/dawg"
-	"github.com/Pashugan/trie"
 )
 
 type ZoneType uint8
@@ -41,7 +41,7 @@ type ZoneData struct {
 
 	// Data		map[string]map[uint16][]dns.RR	// map[owner]map[rrtype][]dns.RR
 	Data   map[string]OwnerData // map[owner]map[rrtype][]dns.RR
-	RpzMap map[string]*RpzName    // map[owner]map[rrtype][]dns.RR
+	RpzMap map[string]*RpzName  // map[owner]map[rrtype][]dns.RR
 
 	// Other stuff
 	DroppedRRs     int
@@ -218,7 +218,7 @@ type WBGlist struct {
 	RpzUpstream string
 	RpzSerial   int
 	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
-	Trie	    trie.Trie
+	Trie        trie.Trie
 }
 
 type TapirName struct {
@@ -232,7 +232,7 @@ type TapirName struct {
 }
 
 type RpzName struct {
-     Name    string
-     RR	     *dns.RR
-     Action  Action
+	Name   string
+	RR     *dns.RR
+	Action Action
 }

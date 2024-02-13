@@ -131,15 +131,15 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 // Typically used in preparation for a ZONEMD computation or an outbound zone transfer.
 func (zd *ZoneData) Sync() error {
 	log.Printf("zd.Sync(): pre sync: there are %d RRs in BodyRRs and %d RRs in RRs",
-				    len(zd.BodyRRs), len(zd.RRs))
+		len(zd.BodyRRs), len(zd.RRs))
 	var rrs = []dns.RR{dns.RR(&zd.SOA)}
 	rrs = append(rrs, zd.NSrrs...)
 
 	switch zd.ZoneType {
 	case RpzZone:
-//	     rrs = []dns.RR{dns.RR(&zd.SOA)}
-//	     rrs = append(rrs, zd.NSrrs...)
-//	     rrs = append(rrs, body_rrs...)
+		//	     rrs = []dns.RR{dns.RR(&zd.SOA)}
+		//	     rrs = append(rrs, zd.NSrrs...)
+		//	     rrs = append(rrs, body_rrs...)
 	case SliceZone:
 		for _, odmap := range zd.Data {
 			for _, rrl := range odmap.RRtypes {
