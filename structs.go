@@ -168,7 +168,7 @@ type TapirMsg struct {
 type Domain struct {
 	Name    string
 	Tags    []string // this should become a bit field in the future
-	Tagmask TagMask  // here is the bitfield
+	TagMask TagMask  // here is the bitfield
 	Action  Action   // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 

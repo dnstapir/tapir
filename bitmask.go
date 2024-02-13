@@ -27,7 +27,7 @@ const (
 	Frotz
 )
 
-var DefinedTags = []string{"newname", "highvolume", "bad-ip", "cdntracker", "likelymalware", "likelybotnetcc",
+var DefinedTags = []string{"newname", "highvolume", "badip", "cdntracker", "likelymalware", "likelybotnetcc",
 	"childporn", "foo", "bar", "baz", "gazonk", "frotz"}
 
 func SetTag(b, tag TagMask) TagMask    { return b | tag }
@@ -59,13 +59,13 @@ func StringsToTagMask(ss []string) (TagMask, error) {
 			res.SetTag(NewName)
 		case "highvolume":
 			res.SetTag(HighVolume)
-		case "bad-ip":
+		case "badip":
 			res.SetTag(BadIP)
 		case "cdntracker":
 			res.SetTag(CdnTracker)
-		case "likely-malware":
+		case "likelymalware":
 			res.SetTag(LikelyMalware)
-		case "likely-botnetcc":
+		case "likelybotnetcc":
 			res.SetTag(LikelyBotnetCC)
 		case "childporn":
 			res.SetTag(ChildPorn)
