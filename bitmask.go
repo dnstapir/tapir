@@ -126,3 +126,11 @@ var ActionToCNAMETarget = map[Action]string{
 	WHITELIST: "rpz-passthru.",
 	REDIRECT:  "what-to-do-about-this",
 }
+
+var ActionToString = map[Action]string{
+	NXDOMAIN:  "NXDOMAIN",
+	NODATA:    "NODATA",
+	DROP:      "DROP",
+	WHITELIST: "WHITELIST",
+	REDIRECT:  "WHAT-TO-DO-ABOUT-REDIRECTS",
+}

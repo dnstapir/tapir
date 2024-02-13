@@ -84,9 +84,9 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	zonedata := ZoneData{
 		ZoneName:    zd.ZoneName,
 		ZoneType:    zd.ZoneType,
-		RRKeepFunc:  zd.RRKeepFunc,
+//		RRKeepFunc:  zd.RRKeepFunc,
 		RRParseFunc: zd.RRParseFunc,
-		RpzData:     zd.RpzData,
+//		RpzData:     zd.RpzData,
 		Logger:      zd.Logger,
 		Verbose:     zd.Verbose,
 	}
@@ -117,7 +117,7 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	zd.XfrType = zonedata.XfrType
 	zd.ZoneType = zonedata.ZoneType
 	zd.Data = zonedata.Data
-	zd.RpzData = zonedata.RpzData
+//	zd.RpzData = zonedata.RpzData
 
 	// XXX: This isn't exactly safe (as there may be multiple ongoing requests),
 	// but for the limited test case we have it should work.

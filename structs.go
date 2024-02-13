@@ -49,11 +49,11 @@ type ZoneData struct {
 	XfrType        string // axfr | ixfr
 	Logger         *log.Logger
 	IncomingSerial uint32
-	RRKeepFunc     func(uint16) bool
+//	RRKeepFunc     func(uint16) bool
 	RRParseFunc    func(*dns.RR, *ZoneData) bool
 	Verbose        bool
 	Debug          bool
-	RpzData        map[string]string // map[ownername]action. owner w/o rpz zone name
+//	RpzData        map[string]string // map[ownername]action. owner w/o rpz zone name
 }
 
 type Owners []OwnerData
@@ -225,7 +225,7 @@ type TapirName struct {
 	//	SrcFormat string          // "tapir-feed-v1" | ...
 	Name    string
 	Tags    []string // XXX: extremely wasteful, a bitfield would be better,
-	Tagmask TagMask  // bitfield
+	TagMask TagMask  // bitfield
 	NumTags uint8
 	//      but don't know how many tags there can be
 	Action Action // bitfield NXDOMAIN|NODATA|DROP|...

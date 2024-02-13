@@ -23,6 +23,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/spf13/viper"
+	"github.com/ryanuber/columnize"
 )
 
 func Chomp(s string) string {
@@ -366,8 +367,6 @@ func (me *MqttEngine) StopEngine() (chan MqttEngineCmd, error) {
 
 // Trivial interrupt handler to catch SIGTERM and stop the MQTT engine nicely
 func (me *MqttEngine) SetupInterruptHandler() {
-	//        respch := make(chan MqttEngineResponse, 2)
-
 	ic := make(chan os.Signal, 1)
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -376,8 +375,41 @@ func (me *MqttEngine) SetupInterruptHandler() {
 			case <-ic:
 				fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
 				me.StopEngine()
-				//                                os.Exit(1)
 			}
 		}
 	}()
+}
+
+// XXX: Only used for debugging
+func SetupTapirMqttSubPrinter(inbox chan MqttPkg) {
+	go func() {
+		var pkg MqttPkg
+		for {
+			select {
+			case pkg = <-inbox:
+			     	var out []string
+				fmt.Printf("Received TAPIR MQTT Message:\n")
+				for _, a := range pkg.Data.Added {
+				    out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
+				}
+				for _, a := range pkg.Data.Removed {
+				    out = append(out, fmt.Sprintf("DEL: %s", a.Name))
+				}
+				fmt.Println(columnize.SimpleFormat(out))
+			}
+		}
+	}()
+}
+
+// XXX: Only used for debugging
+func PrintTapirMqttPkg(pkg MqttPkg, lg *log.Logger) {
+     	var out []string
+	lg.Printf("Received TAPIR MQTT Message:\n")
+	for _, a := range pkg.Data.Added {
+	    out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
+	}
+	for _, a := range pkg.Data.Removed {
+	    out = append(out, fmt.Sprintf("DEL: %s", a.Name))
+	}
+	lg.Println(columnize.SimpleFormat(out))
 }
