@@ -33,15 +33,15 @@ func Chomp(s string) string {
 }
 
 const (
-      TapirPub uint8 = 1 << iota
-      TapirSub
+	TapirPub uint8 = 1 << iota
+	TapirSub
 )
 
 func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
-        if pubsub == 0 {
-	   return nil, fmt.Errorf("Either (or both) pub or sub support must be requested for MQTT Engine")
+	if pubsub == 0 {
+		return nil, fmt.Errorf("Either (or both) pub or sub support must be requested for MQTT Engine")
 	}
-	
+
 	if clientid == "" {
 		return nil, fmt.Errorf("MQTT client id not specified")
 	}
@@ -97,7 +97,7 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 	}
 
 	signingKeyFile := viper.GetString("mqtt.signingkey")
-	if pubsub & TapirPub == 0 {
+	if pubsub&TapirPub == 0 {
 		log.Printf("MQTT pub support not requested, only sub possible")
 	} else if signingKeyFile == "" {
 		log.Printf("MQTT signing key file not specified in config, publish not possible")
@@ -125,7 +125,7 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 	}
 
 	signingPubFile := viper.GetString("mqtt.validatorkey")
-	if pubsub & TapirSub == 0 {
+	if pubsub&TapirSub == 0 {
 		log.Printf("MQTT sub support not requested, only pub possible")
 	} else if signingPubFile == "" {
 		log.Printf("MQTT validator pub file not specified in config, subscribe not possible")
@@ -165,11 +165,11 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 	c := paho.NewClient(paho.ClientConfig{
 		// XXX: The router seems to only bee needed for subscribers
 		Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) { me.MsgChan <- m }),
-		Conn: conn,
+		Conn:   conn,
 	})
 
 	if GlobalCF.Debug {
-	   c.SetDebugLogger(logger)
+		c.SetDebugLogger(logger)
 	}
 	c.SetErrorLogger(logger)
 
@@ -212,18 +212,18 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 			})
 			if err != nil {
 				resp <- MqttEngineResponse{
-						Error:    true,
-						ErrorMsg: fmt.Sprintf("Error from mp.Client.Subscribe: %v", err),
-				     	}
+					Error:    true,
+					ErrorMsg: fmt.Sprintf("Error from mp.Client.Subscribe: %v", err),
+				}
 				return
 			}
 			fmt.Println(string(sa.Reasons))
 			if sa.Reasons[0] != byte(me.QoS) {
 				resp <- MqttEngineResponse{
-						Error:    true,
-						ErrorMsg: fmt.Sprintf("Failed to subscribe to topic: %s reasons: %d",
-							  		      me.Topic, sa.Reasons[0]),
-				     	}
+					Error: true,
+					ErrorMsg: fmt.Sprintf("Failed to subscribe to topic: %s reasons: %d",
+						me.Topic, sa.Reasons[0]),
+				}
 				return
 			}
 			log.Printf("Subscribed to %s", me.Topic)
@@ -240,13 +240,13 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 			err := me.Client.Disconnect(d)
 			if err != nil {
 				resp <- MqttEngineResponse{
-						Error:	true,
-						ErrorMsg:	err.Error(),
-				     	}
+					Error:    true,
+					ErrorMsg: err.Error(),
+				}
 			} else {
 				resp <- MqttEngineResponse{
-						Status:	"connection to MQTT broker closed",
-				     	}
+					Status: "connection to MQTT broker closed",
+				}
 			}
 		}
 	}
@@ -271,12 +271,12 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 						log.Printf("Error from buf.Writestring(): %v", err)
 					}
 					if GlobalCF.Debug {
-					   log.Printf("MQTT Engine: received text msg: %s", outbox.Msg)
+						log.Printf("MQTT Engine: received text msg: %s", outbox.Msg)
 					}
 
 				case "data":
-				        if GlobalCF.Debug {
-					   log.Printf("MQTT Engine: received raw data: %v", outbox.Data)
+					if GlobalCF.Debug {
+						log.Printf("MQTT Engine: received raw data: %v", outbox.Data)
 					}
 					buf.Reset()
 					outbox.TimeStamp = time.Now()
@@ -366,18 +366,18 @@ func (me *MqttEngine) StopEngine() (chan MqttEngineCmd, error) {
 
 // Trivial interrupt handler to catch SIGTERM and stop the MQTT engine nicely
 func (me *MqttEngine) SetupInterruptHandler() {
-//        respch := make(chan MqttEngineResponse, 2)
+	//        respch := make(chan MqttEngineResponse, 2)
 
-        ic := make(chan os.Signal, 1)
-        signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
-        go func() {
-                for {
-                        select {
-                        case <-ic:
-                                fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
+	ic := make(chan os.Signal, 1)
+	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		for {
+			select {
+			case <-ic:
+				fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
 				me.StopEngine()
-//                                os.Exit(1)
-                        }
-                }
-        }()
+				//                                os.Exit(1)
+			}
+		}
+	}()
 }
