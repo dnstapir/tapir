@@ -49,11 +49,11 @@ type ZoneData struct {
 	XfrType        string // axfr | ixfr
 	Logger         *log.Logger
 	IncomingSerial uint32
-//	RRKeepFunc     func(uint16) bool
-	RRParseFunc    func(*dns.RR, *ZoneData) bool
-	Verbose        bool
-	Debug          bool
-//	RpzData        map[string]string // map[ownername]action. owner w/o rpz zone name
+	//	RRKeepFunc     func(uint16) bool
+	RRParseFunc func(*dns.RR, *ZoneData) bool
+	Verbose     bool
+	Debug       bool
+	// RpzData        map[string]string // map[ownername]action. owner w/o rpz zone name
 }
 
 type Owners []OwnerData
@@ -210,6 +210,7 @@ type WBGlist struct {
 	Format     string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
 	Datasource string // file | xfr | mqtt | https | api | ...
 	Filename   string
+	Upstream   string
 	Dawgf      dawg.Finder
 
 	// greylist sources needs more complex stuff here:

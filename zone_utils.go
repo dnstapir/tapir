@@ -82,13 +82,13 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	log.Printf("Transferring zone %s via AXFR from %s\n", zd.ZoneName, upstream)
 
 	zonedata := ZoneData{
-		ZoneName:    zd.ZoneName,
-		ZoneType:    zd.ZoneType,
-//		RRKeepFunc:  zd.RRKeepFunc,
+		ZoneName: zd.ZoneName,
+		ZoneType: zd.ZoneType,
+		//		RRKeepFunc:  zd.RRKeepFunc,
 		RRParseFunc: zd.RRParseFunc,
-//		RpzData:     zd.RpzData,
-		Logger:      zd.Logger,
-		Verbose:     zd.Verbose,
+		//		RpzData:     zd.RpzData,
+		Logger:  zd.Logger,
+		Verbose: zd.Verbose,
 	}
 
 	_, err := zonedata.ZoneTransferIn(upstream, current_serial, "axfr")
@@ -117,7 +117,7 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	zd.XfrType = zonedata.XfrType
 	zd.ZoneType = zonedata.ZoneType
 	zd.Data = zonedata.Data
-//	zd.RpzData = zonedata.RpzData
+	//	zd.RpzData = zonedata.RpzData
 
 	// XXX: This isn't exactly safe (as there may be multiple ongoing requests),
 	// but for the limited test case we have it should work.

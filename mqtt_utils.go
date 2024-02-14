@@ -22,8 +22,8 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
-	"github.com/spf13/viper"
 	"github.com/ryanuber/columnize"
+	"github.com/spf13/viper"
 )
 
 func Chomp(s string) string {
@@ -387,13 +387,13 @@ func SetupTapirMqttSubPrinter(inbox chan MqttPkg) {
 		for {
 			select {
 			case pkg = <-inbox:
-			     	var out []string
+				var out []string
 				fmt.Printf("Received TAPIR MQTT Message:\n")
 				for _, a := range pkg.Data.Added {
-				    out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
+					out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
 				}
 				for _, a := range pkg.Data.Removed {
-				    out = append(out, fmt.Sprintf("DEL: %s", a.Name))
+					out = append(out, fmt.Sprintf("DEL: %s", a.Name))
 				}
 				fmt.Println(columnize.SimpleFormat(out))
 			}
@@ -403,13 +403,13 @@ func SetupTapirMqttSubPrinter(inbox chan MqttPkg) {
 
 // XXX: Only used for debugging
 func PrintTapirMqttPkg(pkg MqttPkg, lg *log.Logger) {
-     	var out []string
+	var out []string
 	lg.Printf("Received TAPIR MQTT Message:\n")
 	for _, a := range pkg.Data.Added {
-	    out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
+		out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
 	}
 	for _, a := range pkg.Data.Removed {
-	    out = append(out, fmt.Sprintf("DEL: %s", a.Name))
+		out = append(out, fmt.Sprintf("DEL: %s", a.Name))
 	}
 	lg.Println(columnize.SimpleFormat(out))
 }

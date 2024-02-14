@@ -248,10 +248,10 @@ func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 }
 
 func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
-//	if zd.RRKeepFunc != nil && !zd.RRKeepFunc(rr.Header().Rrtype) {
-//		zd.DroppedRRs++
-//		return
-//	}
+	//	if zd.RRKeepFunc != nil && !zd.RRKeepFunc(rr.Header().Rrtype) {
+	//		zd.DroppedRRs++
+	//		return
+	//	}
 	zd.KeptRRs++
 
 	if zd.RRParseFunc != nil && !zd.RRParseFunc(&rr, zd) {
@@ -419,7 +419,7 @@ func (zd *ZoneData) ComputeIndices() {
 		zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA] = soas
 	}
 	if zd.Debug {
-//		zd.PrintOwners()
+		//		zd.PrintOwners()
 	}
 }
 

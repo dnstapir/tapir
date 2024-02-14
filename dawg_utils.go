@@ -215,7 +215,6 @@ func createDomainsList(domainsFileName string) ([]string, error) {
 }
 
 func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]string, error) {
-	fmt.Println("Creating sorted domain list from CSV")
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err
@@ -248,20 +247,21 @@ func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]str
 
 		name = dns.Fqdn(record[1])
 		if dontsort {
-		   dstmap[name] = TapirName{ Name: name }
+			dstmap[name] = TapirName{Name: name}
 		} else {
 
-		// Make sure the domain is fully qualified (includes
-		// the root domain dot at the end) as this is expected
-		// by miekg/dns when comparing against a dns question
-		// section name
-		sortedDomains = append(sortedDomains, name)
+			// Make sure the domain is fully qualified (includes
+			// the root domain dot at the end) as this is expected
+			// by miekg/dns when comparing against a dns question
+			// section name
+			sortedDomains = append(sortedDomains, name)
 		}
 	}
 
 	if dontsort {
-	   return []string{}, nil
-	} 
+		return []string{}, nil
+	}
+	fmt.Println("Creating sorted domain list from CSV")
 	// The names need to be sorted when adding them to the dawg
 	// datastructure otherwise the operation can fail:
 	// panic: d.AddWord(): Words not in alphabetical order
@@ -272,7 +272,6 @@ func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]str
 // Two modes of operation: either return a (potentially large) []string with sorted output
 // *or* update the dstmap of TapirNames directly and don't return the result
 func ParseText(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]string, error) {
-	fmt.Println("Creating sorted domain list from text")
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err
@@ -290,18 +289,19 @@ func ParseText(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]st
 	scanner.Split(bufio.ScanLines)
 
 	if dontsort {
-	   for scanner.Scan() {
-		// sortedDomains = append(sortedDomains, dns.Fqdn(scanner.Text()))
-		name := dns.Fqdn(scanner.Text())
-		dstmap[name] = TapirName{ Name: name }
-	   }
-	   return sortedDomains, nil // 
+		for scanner.Scan() {
+			// sortedDomains = append(sortedDomains, dns.Fqdn(scanner.Text()))
+			name := dns.Fqdn(scanner.Text())
+			dstmap[name] = TapirName{Name: name}
+		}
+		return sortedDomains, nil //
 	} else {
-	   for scanner.Scan() {
-		sortedDomains = append(sortedDomains, dns.Fqdn(scanner.Text()))
-	   }
-	   slices.Sort(sortedDomains)
-	   return sortedDomains, nil
+		// fmt.Println("Creating sorted domain list from text")
+		for scanner.Scan() {
+			sortedDomains = append(sortedDomains, dns.Fqdn(scanner.Text()))
+		}
+		slices.Sort(sortedDomains)
+		return sortedDomains, nil
 	}
 }
 
