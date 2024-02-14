@@ -418,8 +418,8 @@ func (zd *ZoneData) ComputeIndices() {
 		soas.RRs = soas.RRs[:1]
 		zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA] = soas
 	}
-	if zd.Verbose {
-		zd.PrintOwners()
+	if zd.Debug {
+//		zd.PrintOwners()
 	}
 }
 
