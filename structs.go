@@ -166,10 +166,12 @@ type TapirMsg struct {
 }
 
 type Domain struct {
-	Name    string
-	Tags    []string // this should become a bit field in the future
-	TagMask TagMask  // here is the bitfield
-	Action  Action   // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
+	Name      string
+	TimeAdded time.Time
+	TTL       time.Duration
+	// Tags    []string // this should become a bit field in the future
+	TagMask TagMask // here is the bitfield
+	Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
 type MqttEngine struct {
@@ -218,15 +220,18 @@ type WBGlist struct {
 	RpzZoneName string
 	RpzUpstream string
 	RpzSerial   int
-	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
+	Names       map[string]*TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
+	ReaperData  map[time.Time]map[string]*TapirName
 	Trie        trie.Trie
 }
 
 type TapirName struct {
 	//	SrcFormat string          // "tapir-feed-v1" | ...
-	Name    string
-	Tags    []string // XXX: extremely wasteful, a bitfield would be better,
-	TagMask TagMask  // bitfield
+	Name      string
+	TimeAdded time.Time
+	TTL       time.Duration
+	// Tags    []string // XXX: extremely wasteful, a bitfield would be better,
+	TagMask TagMask // bitfield
 	NumTags uint8
 	//      but don't know how many tags there can be
 	Action Action // bitfield NXDOMAIN|NODATA|DROP|...

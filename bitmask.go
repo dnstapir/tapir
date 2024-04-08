@@ -44,7 +44,7 @@ func (tm *TagMask) NumTags() int {
 	var res int
 	for i := 0; i < 32; i++ {
 		if tm.HasTag(TagMask(1 << i)) {
-			fmt.Printf("Bit %d is set\n", i)
+			// fmt.Printf("Bit %d is set\n", i)
 			res++
 		}
 	}

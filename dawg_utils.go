@@ -214,7 +214,7 @@ func createDomainsList(domainsFileName string) ([]string, error) {
 	return sortedDomains, nil
 }
 
-func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]string, error) {
+func ParseCSV(srcfile string, dstmap map[string]*TapirName, dontsort bool) ([]string, error) {
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err
@@ -247,7 +247,7 @@ func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]str
 
 		name = dns.Fqdn(record[1])
 		if dontsort {
-			dstmap[name] = TapirName{Name: name}
+			dstmap[name] = &TapirName{Name: name}
 		} else {
 
 			// Make sure the domain is fully qualified (includes
@@ -271,7 +271,7 @@ func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]str
 
 // Two modes of operation: either return a (potentially large) []string with sorted output
 // *or* update the dstmap of TapirNames directly and don't return the result
-func ParseText(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]string, error) {
+func ParseText(srcfile string, dstmap map[string]*TapirName, dontsort bool) ([]string, error) {
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err
@@ -292,7 +292,7 @@ func ParseText(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]st
 		for scanner.Scan() {
 			// sortedDomains = append(sortedDomains, dns.Fqdn(scanner.Text()))
 			name := dns.Fqdn(scanner.Text())
-			dstmap[name] = TapirName{Name: name}
+			dstmap[name] = &TapirName{Name: name}
 		}
 		return sortedDomains, nil //
 	} else {
