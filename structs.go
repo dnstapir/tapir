@@ -157,6 +157,7 @@ type MqttPkg struct {
 
 type TapirMsg struct {
 	SrcName   string // must match a defined source
+	Creator   string // Not yet used
 	MsgType   string // "intelupdate", "reset", ...
 	ListType  string // "{white|black|grey}list"
 	Added     []Domain
@@ -168,8 +169,8 @@ type TapirMsg struct {
 type Domain struct {
 	Name      string
 	TimeAdded time.Time
-	TTL       time.Duration
-	// Tags    []string // this should become a bit field in the future
+	//	TTL       time.Duration
+	TTL     int     // in seconds
 	TagMask TagMask // here is the bitfield
 	Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
@@ -188,6 +189,7 @@ type MqttEngine struct {
 	CmdChan       chan MqttEngineCmd
 	PublishChan   chan MqttPkg
 	SubscribeChan chan MqttPkg
+	ValidatorKeys map[string]*ecdsa.PublicKey
 	CanPublish    bool
 	CanSubscribe  bool
 }
@@ -203,17 +205,22 @@ type MqttEngineResponse struct {
 	ErrorMsg string
 }
 
+type MqttDetails struct {
+	ValidatorKeys map[string]*ecdsa.PublicKey // map[topic]*key
+}
+
 type WBGlist struct {
 	Name        string
 	Description string
 	Type        string // whitelist | blacklist | greylist
 	//	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
-	SrcFormat  string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
-	Format     string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
-	Datasource string // file | xfr | mqtt | https | api | ...
-	Filename   string
-	Upstream   string
-	Dawgf      dawg.Finder
+	SrcFormat   string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
+	Format      string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
+	Datasource  string // file | xfr | mqtt | https | api | ...
+	Filename    string
+	Upstream    string
+	Dawgf       dawg.Finder
+	MqttDetails *MqttDetails
 
 	// greylist sources needs more complex stuff here:
 	//	GreyNames   map[string]GreyName

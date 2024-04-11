@@ -7,6 +7,7 @@ package tapir
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -90,11 +91,12 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 	}
 
 	me := MqttEngine{
-		Topic:      topic,
-		Server:     server,
-		ClientID:   clientid,
-		ClientCert: clientCert,
-		CaCertPool: caCertPool,
+		Topic:         topic,
+		Server:        server,
+		ClientID:      clientid,
+		ClientCert:    clientCert,
+		CaCertPool:    caCertPool,
+		ValidatorKeys: make(map[string]*ecdsa.PublicKey),
 	}
 
 	signingKeyFile := viper.GetString("mqtt.signingkey")
@@ -159,7 +161,15 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 		return nil, err
 	}
 
-	logger := log.New(os.Stdout, fmt.Sprintf("SUB (%s): ", me.ClientID), log.LstdFlags)
+	var tag string
+	if me.CanPublish {
+		tag += "PUB"
+	}
+	if me.CanSubscribe {
+		tag += "SUB"
+	}
+
+	logger := log.New(os.Stdout, fmt.Sprintf("%s (%s): ", tag, me.ClientID), log.LstdFlags)
 
 	me.MsgChan = make(chan *paho.Publish)
 
@@ -203,13 +213,27 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 			}
 			return
 		}
-		fmt.Printf("Connected to %s\n", me.Server)
+		log.Printf("Connected to %s\n", me.Server)
+
+		if me.CanPublish {
+			log.Printf("Publishing on topic %s", me.Topic)
+		}
 
 		if me.CanSubscribe {
+			subs := []paho.SubscribeOptions{}
+			for topic, _ := range me.ValidatorKeys {
+				subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
+			}
+			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
+			for _, v := range subs {
+				log.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
+			}
+
 			sa, err := me.Client.Subscribe(context.Background(), &paho.Subscribe{
-				Subscriptions: []paho.SubscribeOptions{
-					{Topic: me.Topic, QoS: byte(me.QoS)},
-				},
+				//				Subscriptions: []paho.SubscribeOptions{
+				//					{Topic: me.Topic, QoS: byte(me.QoS)},
+				//				},
+				Subscriptions: subs,
 			})
 			if err != nil {
 				resp <- MqttEngineResponse{
@@ -309,12 +333,19 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 					log.Println("MQTT Engine: received message:", string(inbox.Payload))
 				}
 				pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
-				payload, err := jws.Verify(inbox.Payload, jws.WithKey(jwa.ES256, me.PubKey))
+				log.Printf("MQTT Engine: topic: %v", inbox.Topic)
+				validatorkey := me.ValidatorKeys[inbox.Topic]
+				if validatorkey == nil {
+					log.Printf("Danger Will Robinson: validator key for MQTT topic %s not found", inbox.Topic)
+				}
+				payload, err := jws.Verify(inbox.Payload, jws.WithKey(jwa.ES256, validatorkey))
 				if err != nil {
 					pkg.Error = true
 					pkg.ErrorMsg = fmt.Sprintf("failed to verify message: %v", err)
+					log.Printf("MQTT Engine: failed to verify message: %v", err)
+					// log.Printf("MQTT Engine: received msg: %v", string(inbox.Payload))
 				} else {
-					// log.Printf("verified message: %s", payload)
+					log.Printf("verified message: %s", string(payload))
 					r := bytes.NewReader(payload)
 					err = json.NewDecoder(r).Decode(&pkg.Data)
 					if err != nil {
@@ -343,7 +374,19 @@ func NewMqttEngine(clientid string, pubsub uint8) (*MqttEngine, error) {
 	return &me, nil
 }
 
+func (me *MqttEngine) AddTopic(topic string, validatorkey *ecdsa.PublicKey) error {
+	if topic != "" && validatorkey != nil {
+		me.ValidatorKeys[topic] = validatorkey
+		log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
+		return nil
+	}
+	return fmt.Errorf("invalid topic or validator key")
+}
+
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkg, chan MqttPkg, error) {
+	if len(me.ValidatorKeys) == 0 {
+		return nil, nil, nil, fmt.Errorf("MQTT Engine: no topics added")
+	}
 	resp := make(chan MqttEngineResponse, 1)
 	me.CmdChan <- MqttEngineCmd{Cmd: "start", Resp: resp}
 	r := <-resp
@@ -412,4 +455,28 @@ func PrintTapirMqttPkg(pkg MqttPkg, lg *log.Logger) {
 		out = append(out, fmt.Sprintf("DEL: %s", a.Name))
 	}
 	lg.Println(columnize.SimpleFormat(out))
+}
+
+func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
+	var PubKey *ecdsa.PublicKey
+	if filename == "" {
+		log.Printf("MQTT validator validator key for topic %s file not specified in config, subscribe not possible", topic)
+	} else {
+		signingPub, err := os.ReadFile(filename)
+		if err != nil {
+			return nil, err
+		}
+
+		// Setup key used for creating the JWS
+		pemBlock, _ := pem.Decode(signingPub)
+		if pemBlock == nil || pemBlock.Type != "PUBLIC KEY" {
+			return nil, fmt.Errorf("failed to decode PEM block containing public key")
+		}
+		tmp, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		PubKey = tmp.(*ecdsa.PublicKey)
+	}
+	return PubKey, nil
 }

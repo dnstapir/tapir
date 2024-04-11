@@ -65,7 +65,7 @@ func NewApiClient(params ApiClient) *ApiClient {
 	}
 
 	if params.ClientName == "" {
-		params.ClientName = "axfr-cli"
+		params.ClientName = "tapir-cli"
 	}
 
 	ac := ApiClient{
