@@ -158,17 +158,17 @@ func (zd *ZoneData) Sync() error {
 
 func (zd *ZoneData) PrintOwners() {
 	switch zd.ZoneType {
-	case 3:
-		fmt.Printf("owner name\tindex\n")
+	case SliceZone:
+		zd.Logger.Printf("owner name\tindex\n")
 		for i, v := range zd.Owners {
 			rrtypes := []string{}
 			for t, _ := range v.RRtypes {
 				rrtypes = append(rrtypes, dns.TypeToString[t])
 			}
-			fmt.Printf("%d\t%s\t%s\n", i, v.Name, strings.Join(rrtypes, ", "))
+			zd.Logger.Printf("%d\t%s\t%s\n", i, v.Name, strings.Join(rrtypes, ", "))
 		}
 		for k, v := range zd.OwnerIndex {
-			fmt.Printf("%s\t%d\n", k, v)
+			zd.Logger.Printf("%s\t%d\n", k, v)
 		}
 	default:
 		zd.Logger.Printf("Sorry, only zonetype=3 for now")

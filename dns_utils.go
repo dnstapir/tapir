@@ -43,7 +43,7 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 		msg.SetAxfr(zd.ZoneName)
 	}
 
-	if zd.ZoneType == 2 || zd.ZoneType == 3 {
+	if zd.ZoneType == MapZone || zd.ZoneType == SliceZone {
 		zd.Data = make(map[string]OwnerData, 30)
 	}
 	log.Printf("ZoneTransferIn: ZoneType: %v", zd.ZoneType)
@@ -119,7 +119,10 @@ func (zd *ZoneData) ZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, erro
 	wg.Add(1)
 
 	go func() {
-		tr.Out(w, r, outbound_xfr)
+		err := tr.Out(w, r, outbound_xfr)
+		if err != nil {
+			zd.Logger.Printf("ZoneTransferOut: Error from tr.Out: %v", err)
+		}
 		wg.Done()
 	}()
 
@@ -214,7 +217,7 @@ func (zd *ZoneData) ReadZoneString(s string) (uint32, error) {
 
 func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 
-	if zd.ZoneType == 2 || zd.ZoneType == 3 {
+	if zd.ZoneType == MapZone || zd.ZoneType == SliceZone {
 		// zd.Data = make(map[string]map[uint16][]dns.RR, 30)
 		zd.Data = make(map[string]OwnerData, 30)
 	}
@@ -266,9 +269,9 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 
 	var odmap OwnerData
 	switch zd.ZoneType {
-	case 3:
+	case SliceZone:
 		fallthrough // store slicezones as mapzones during inbound transfer, sort afterwards into slice
-	case 2:
+	case MapZone:
 		odmap = zd.Data[owner]
 		if odmap.RRtypes == nil {
 			odmap.Name = owner
@@ -425,7 +428,7 @@ func (zd *ZoneData) ComputeIndices() {
 
 func (zd *ZoneData) PrintRRs() {
 	switch zd.ZoneType {
-	case 2:
+	case MapZone:
 		for _, od := range zd.Data {
 			for _, rrt := range od.RRtypes {
 				for _, rr := range rrt.RRs {
@@ -434,7 +437,7 @@ func (zd *ZoneData) PrintRRs() {
 			}
 		}
 
-	case 3:
+	case SliceZone:
 		for _, od := range zd.Owners {
 			for _, rrt := range od.RRtypes {
 				for _, rr := range rrt.RRs {
