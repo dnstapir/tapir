@@ -164,6 +164,7 @@ type TapirMsg struct {
 	Removed   []Domain
 	Msg       string
 	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr   string    // time string encoded in the payload by the sender, not touched by MQTTs
 }
 
 type Domain struct {

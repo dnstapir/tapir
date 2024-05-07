@@ -43,9 +43,11 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 		msg.SetAxfr(zd.ZoneName)
 	}
 
-	if zd.ZoneType == MapZone || zd.ZoneType == SliceZone {
+	switch zd.ZoneType {
+	case MapZone, SliceZone, RpzZone:
 		zd.Data = make(map[string]OwnerData, 30)
 	}
+
 	log.Printf("ZoneTransferIn: ZoneType: %v", zd.ZoneType)
 
 	transfer := new(dns.Transfer)
@@ -217,7 +219,8 @@ func (zd *ZoneData) ReadZoneString(s string) (uint32, error) {
 
 func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 
-	if zd.ZoneType == MapZone || zd.ZoneType == SliceZone {
+	switch zd.ZoneType {
+	case MapZone, SliceZone, RpzZone:
 		// zd.Data = make(map[string]map[uint16][]dns.RR, 30)
 		zd.Data = make(map[string]OwnerData, 30)
 	}
@@ -265,11 +268,11 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 	owner := rr.Header().Name
 	rrtype := rr.Header().Rrtype
 
-	// zd.Logger.Printf("RRSortFunc: owner=%s rrtype=%s", owner, dns.TypeToString[rrtype])
+	zd.Logger.Printf("RRSortFunc: owner=%s rrtype=%s zonetype: %d =%d SliceZone=%d", owner, dns.TypeToString[rrtype], zd.ZoneType, MapZone, SliceZone)
 
 	var odmap OwnerData
 	switch zd.ZoneType {
-	case SliceZone:
+	case SliceZone, RpzZone:
 		fallthrough // store slicezones as mapzones during inbound transfer, sort afterwards into slice
 	case MapZone:
 		odmap = zd.Data[owner]
@@ -289,6 +292,7 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 			zd.ApexLen++
 		}
 		tmp = odmap.RRtypes[rrtype]
+		zd.Logger.Printf("RRSortFunc: odmap.RRtypes: %v", odmap.RRtypes)
 		tmp.RRs = append(tmp.RRs, rr)
 		odmap.RRtypes[rrtype] = tmp
 		// odmap.RRtypes[rrtype].RRs = append(odmap.RRtypes[rrtype].RRs, rr)
@@ -428,7 +432,7 @@ func (zd *ZoneData) ComputeIndices() {
 
 func (zd *ZoneData) PrintRRs() {
 	switch zd.ZoneType {
-	case MapZone:
+	case MapZone, RpzZone:
 		for _, od := range zd.Data {
 			for _, rrt := range od.RRtypes {
 				for _, rr := range rrt.RRs {
