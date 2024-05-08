@@ -98,7 +98,9 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 	return first_soa.Serial, nil
 }
 
-func (zd *ZoneData) ZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// XXX: This function is not used, as we only support outbound xfrs for our
+// own RPZ zone.
+func (zd *ZoneData) xxxZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	if zd.Verbose {
 		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zd.ZoneName,

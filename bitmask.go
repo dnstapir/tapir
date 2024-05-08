@@ -19,7 +19,6 @@ const (
 	CdnTracker
 	LikelyMalware
 	LikelyBotnetCC
-	ChildPorn
 	Foo
 	Bar
 	Baz
@@ -28,7 +27,8 @@ const (
 )
 
 var DefinedTags = []string{"newname", "highvolume", "badip", "cdntracker", "likelymalware", "likelybotnetcc",
-	"childporn", "foo", "bar", "baz", "gazonk", "frotz"}
+	// "childporn",
+	"foo", "bar", "baz", "gazonk", "frotz"}
 
 func SetTag(b, tag TagMask) TagMask    { return b | tag }
 func ClearTag(b, tag TagMask) TagMask  { return b &^ tag }
@@ -67,8 +67,8 @@ func StringsToTagMask(ss []string) (TagMask, error) {
 			res.SetTag(LikelyMalware)
 		case "likelybotnetcc":
 			res.SetTag(LikelyBotnetCC)
-		case "childporn":
-			res.SetTag(ChildPorn)
+			//		case "childporn":
+			//			res.SetTag(ChildPorn)
 		case "foo":
 			res.SetTag(Foo)
 		case "bar":
