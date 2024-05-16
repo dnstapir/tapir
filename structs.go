@@ -157,7 +157,7 @@ type MqttPkg struct {
 
 type TapirMsg struct {
 	SrcName   string // must match a defined source
-	Creator   string // Not yet used
+	Creator   string // "spark"	|| "tapir-cli"
 	MsgType   string // "intelupdate", "reset", ...
 	ListType  string // "{white|black|grey}list"
 	Added     []Domain
@@ -191,8 +191,11 @@ type MqttEngine struct {
 	PublishChan   chan MqttPkg
 	SubscribeChan chan MqttPkg
 	ValidatorKeys map[string]*ecdsa.PublicKey
+	MsgCounter    map[string]uint32
+	MsgTimeStamp  map[string]time.Time
 	CanPublish    bool
 	CanSubscribe  bool
+	Logger        *log.Logger
 }
 
 type MqttEngineCmd struct {
