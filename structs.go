@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Pashugan/trie"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/miekg/dns"
 	"github.com/smhanov/dawg"
@@ -82,6 +81,7 @@ type CommandResponse struct {
 	Status   string
 	Zone     string
 	Serial   uint32
+	Data     []byte
 	Msg      string
 	Error    bool
 	ErrorMsg string
@@ -108,9 +108,16 @@ type DebugResponse struct {
 	BlacklistedNames map[string]bool
 	GreylistedNames  map[string]*TapirName
 	RpzOutput        []RpzName
+	MqttStats        MqttStats
+	ReaperStats      map[string]map[time.Time][]string
 	Msg              string
 	Error            bool
 	ErrorMsg         string
+}
+
+type MqttStats struct {
+	MsgCounter   map[string]uint32
+	MsgTimeStamp map[string]time.Time
 }
 
 type Api struct {
@@ -233,7 +240,7 @@ type WBGlist struct {
 	RpzSerial   int
 	Names       map[string]*TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
 	ReaperData  map[time.Time]map[string]*TapirName
-	Trie        trie.Trie
+	// Trie        trie.Trie
 }
 
 type TapirName struct {

@@ -179,7 +179,8 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	c := paho.NewClient(paho.ClientConfig{
 		// XXX: The router seems to only bee needed for subscribers
 		Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) { me.MsgChan <- m }),
-		Conn:   conn,
+		// AutoReconnect: true,
+		Conn: conn,
 	})
 
 	if GlobalCF.Debug {
@@ -428,6 +429,13 @@ func (me *MqttEngine) RestartEngine() (chan MqttEngineCmd, error) {
 		return me.CmdChan, fmt.Errorf(r.ErrorMsg)
 	}
 	return me.CmdChan, nil
+}
+
+func (me *MqttEngine) Stats() MqttStats {
+	return MqttStats{
+		MsgCounter:   me.MsgCounter,
+		MsgTimeStamp: me.MsgTimeStamp,
+	}
 }
 
 // Trivial interrupt handler to catch SIGTERM and stop the MQTT engine nicely
