@@ -25,6 +25,13 @@ const (
 	RpzZone
 )
 
+var ZoneTypeToString = map[ZoneType]string{
+	XfrZone:   "xfr",
+	MapZone:   "map",
+	SliceZone: "slice",
+	RpzZone:   "rpz",
+}
+
 type ZoneData struct {
 	ZoneName   string
 	ZoneType   ZoneType // 1 = "xfr", 2 = "map", 3 = "slice". An xfr zone only supports xfr related ops
@@ -71,6 +78,7 @@ type CommandPost struct {
 	Zone      string
 	Name      string // Domain name to add/remove an RPZ action for
 	ListType  string
+	ListName  string // used in the export-greylist command
 	Policy    string // RPZ policy
 	Action    string // RPZ action (OBE)
 	RpzSource string // corresponds with the sourceid in tem.yaml
@@ -82,6 +90,19 @@ type CommandResponse struct {
 	Zone     string
 	Serial   uint32
 	Data     []byte
+	Msg      string
+	Error    bool
+	ErrorMsg string
+}
+
+type BootstrapPost struct {
+	Command  string
+	ListName string
+}
+
+type BootstrapResponse struct {
+	Time     time.Time
+	Status   string
 	Msg      string
 	Error    bool
 	ErrorMsg string
@@ -238,7 +259,7 @@ type WBGlist struct {
 	RpzZoneName string
 	RpzUpstream string
 	RpzSerial   int
-	Names       map[string]*TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
+	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
 	ReaperData  map[time.Time]map[string]*TapirName
 	// Trie        trie.Trie
 }

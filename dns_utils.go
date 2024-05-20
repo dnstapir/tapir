@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	// "github.com/DmitriyVTitov/size"
@@ -48,7 +47,7 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 		zd.Data = make(map[string]OwnerData, 30)
 	}
 
-	log.Printf("ZoneTransferIn: ZoneType: %v", zd.ZoneType)
+	log.Printf("ZoneTransferIn: ZoneType: %s", ZoneTypeToString[zd.ZoneType])
 
 	transfer := new(dns.Transfer)
 	answerChan, err := transfer.In(msg, upstream)
@@ -61,7 +60,7 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 	var first_soa *dns.SOA
 	for envelope := range answerChan {
 		if envelope.Error != nil {
-			zd.Logger.Printf("ZoneTransfer: zone %s error: %v", zd.ZoneName, envelope.Error)
+			zd.Logger.Printf("ZoneTransferIn: zone %s error: %v", zd.ZoneName, envelope.Error)
 			break
 		}
 
@@ -96,110 +95,6 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 	}
 
 	return first_soa.Serial, nil
-}
-
-// XXX: This function is not used, as we only support outbound xfrs for our
-// own RPZ zone.
-func (zd *ZoneData) xxxZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
-	if zd.Verbose {
-		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zd.ZoneName,
-			len(zd.RRs), w.RemoteAddr().String())
-	}
-
-	zone := dns.Fqdn(zd.ZoneName)
-	if zd.ZoneType != RpzZone {
-		zd.Sync()
-	}
-
-	if zd.Verbose {
-		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zone,
-			len(zd.RRs), w.RemoteAddr().String())
-	}
-
-	outbound_xfr := make(chan *dns.Envelope)
-	tr := new(dns.Transfer)
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		err := tr.Out(w, r, outbound_xfr)
-		if err != nil {
-			zd.Logger.Printf("ZoneTransferOut: Error from tr.Out: %v", err)
-		}
-		wg.Done()
-	}()
-
-	count := 0
-	send_count := 0
-	env := dns.Envelope{}
-
-	//	env.RR = append(env.RR, dns.RR(&zd.SOA))
-	//	total_sent := 1
-	var total_sent int
-
-	switch zd.ZoneType {
-	case RpzZone:
-		env.RR = append(env.RR, dns.RR(&zd.SOA))
-		env.RR = append(env.RR, zd.NSrrs...)
-		// for _, rr := range zd.RRs {
-		for _, rpzn := range zd.RpzMap {
-			env.RR = append(env.RR, *rpzn.RR) // should do proper slice magic instead
-			count++
-			if count >= 500 {
-				send_count++
-				total_sent += len(env.RR)
-				// fmt.Printf("Sending %d RRs\n", len(env.RR))
-				outbound_xfr <- &env
-				// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
-				env = dns.Envelope{}
-				count = 0
-			}
-		}
-
-	case SliceZone:
-		for _, ownerdata := range zd.Owners {
-			for rrt, rrset := range ownerdata.RRtypes {
-				if ownerdata.Name == zd.ZoneName {
-					zd.Logger.Printf("Apex: %s\t%s\n", zd.ZoneName, dns.TypeToString[rrt])
-				}
-
-				switch rrt {
-				case dns.TypeSOA, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
-					continue
-				}
-
-				for _, rr := range rrset.RRs {
-					env.RR = append(env.RR, rr) // should do proper slice magic instead
-					count++
-					if count >= 500 {
-						send_count++
-						total_sent += len(env.RR)
-						// fmt.Printf("Sending %d RRs\n", len(env.RR))
-						outbound_xfr <- &env
-						// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
-						env = dns.Envelope{}
-						count = 0
-					}
-				}
-			}
-		}
-	}
-
-	env.RR = append(env.RR, dns.RR(&zd.SOA)) // trailing SOA
-
-	total_sent += len(env.RR)
-	zd.Logger.Printf("ZoneTransferOut: Zone %s: Sending final %d RRs (including trailing SOA, total sent %d)\n",
-		zd.ZoneName, len(env.RR), total_sent)
-	outbound_xfr <- &env
-
-	close(outbound_xfr)
-	wg.Wait() // wait until everything is written out
-	w.Close() // close connection
-
-	zd.Logger.Printf("ZoneTransferOut: %s: Sent %d RRs (including SOA twice).", zone, total_sent)
-
-	return total_sent - 1, nil
 }
 
 func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
@@ -256,10 +151,6 @@ func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 }
 
 func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
-	//	if zd.RRKeepFunc != nil && !zd.RRKeepFunc(rr.Header().Rrtype) {
-	//		zd.DroppedRRs++
-	//		return
-	//	}
 	zd.KeptRRs++
 
 	if zd.RRParseFunc != nil && !zd.RRParseFunc(&rr, zd) {
@@ -270,7 +161,9 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 	owner := rr.Header().Name
 	rrtype := rr.Header().Rrtype
 
-	zd.Logger.Printf("RRSortFunc: owner=%s rrtype=%s zonetype: %d =%d SliceZone=%d", owner, dns.TypeToString[rrtype], zd.ZoneType, MapZone, SliceZone)
+	if zd.Debug {
+		zd.Logger.Printf("RRSortFunc: owner=%s rrtype=%s zonetype: %s", owner, dns.TypeToString[rrtype], ZoneTypeToString[zd.ZoneType])
+	}
 
 	var odmap OwnerData
 	switch zd.ZoneType {
@@ -294,7 +187,7 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 			zd.ApexLen++
 		}
 		tmp = odmap.RRtypes[rrtype]
-		zd.Logger.Printf("RRSortFunc: odmap.RRtypes: %v", odmap.RRtypes)
+		// zd.Logger.Printf("RRSortFunc: odmap.RRtypes: %v", odmap.RRtypes)
 		tmp.RRs = append(tmp.RRs, rr)
 		odmap.RRtypes[rrtype] = tmp
 		// odmap.RRtypes[rrtype].RRs = append(odmap.RRtypes[rrtype].RRs, rr)
