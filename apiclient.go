@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"io"
+
 	// "crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -56,7 +58,8 @@ type ApiClient struct {
 	HttpClient *http.Client
 }
 
-func NewApiClient(params ApiClient) *ApiClient {
+// XXXX: To be removed.
+func xxxNewApiClient(params ApiClient) *ApiClient {
 	var client *http.Client
 	var path string
 
@@ -424,19 +427,22 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 	}
 
 	status := resp.StatusCode
+	buf, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
+
 	if api.Debug {
 		fmt.Printf("Status from %s: %d\n", method, status)
+		if status != http.StatusOK {
+			fmt.Printf("api.RequestNG: Status is != http.StatusOK: returned bytes: %s\n", string(buf))
+		}
 	}
-
-	buf, err := ioutil.ReadAll(resp.Body)
 
 	if api.Debug {
 		var prettyJSON bytes.Buffer
 
-		error := json.Indent(&prettyJSON, buf, "", "  ")
-		if error != nil {
-			log.Println("JSON parse error: ", error)
+		err := json.Indent(&prettyJSON, buf, "", "  ")
+		if err != nil {
+			log.Println("JSON parse error: ", err)
 		}
 		fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), prettyJSON.String())
 	}

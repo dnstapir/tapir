@@ -183,10 +183,11 @@ type MqttPkg struct {
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
+// TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
 	SrcName   string // must match a defined source
 	Creator   string // "spark"	|| "tapir-cli"
-	MsgType   string // "intelupdate", "reset", ...
+	MsgType   string // "intelupdate", "reset", "global-config"...
 	ListType  string // "{white|black|grey}list"
 	Added     []Domain
 	Removed   []Domain
