@@ -187,7 +187,7 @@ type MqttPkg struct {
 type TapirMsg struct {
 	SrcName   string // must match a defined source
 	Creator   string // "spark"	|| "tapir-cli"
-	MsgType   string // "intelupdate", "reset", "global-config"...
+	MsgType   string // "intel-update", "reset", "global-config"...
 	ListType  string // "{white|black|grey}list"
 	Added     []Domain
 	Removed   []Domain
@@ -261,7 +261,7 @@ type WBGlist struct {
 	RpzUpstream string
 	RpzSerial   int
 	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
-	ReaperData  map[time.Time]map[string]*TapirName
+	ReaperData  map[time.Time]map[string]bool
 	// Trie        trie.Trie
 }
 
