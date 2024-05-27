@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package tapir;
+option go_package = ".";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+message TapirName {
+  string name = 1;
+  google.protobuf.Timestamp time_added = 2;
+  google.protobuf.Duration ttl = 3;
+  uint32 tag_mask = 4;
+  uint32 num_tags = 5;
+  uint32 action = 6;
+}
+
+message ReaperData {
+  map<string, bool> entries = 1;
+}
+
+message WBGlist {
+  string name = 1;
+  string description = 2;
+  string type = 3;
+  string src_format = 4;
+  string format = 5;
+  string datasource = 6;
+  string filename = 7;
+  string upstream = 8;
+  string rpz_zone_name = 9;
+  string rpz_upstream = 10;
+  int32 rpz_serial = 11;
+  map<string, TapirName> names = 12;
+  map<string, ReaperData> reaper_data = 13;
+}
