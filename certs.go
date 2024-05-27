@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
@@ -17,6 +18,7 @@ type SimpleConfig struct {
 }
 
 func loadCertPool(filename string) (*x509.CertPool, error) {
+	filename = filepath.Clean(filename)
 	caCert, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -41,6 +43,7 @@ func NewServerConfig(caFile string, clientAuth tls.ClientAuthType) (*tls.Config,
 		ClientCAs:  caCertPool,
 		ClientAuth: clientAuth,
 		NextProtos: []string{"h2", "http/1.1"},
+		MinVersion: tls.VersionTLS13,
 	}
 
 	return config, nil
@@ -61,6 +64,7 @@ func NewClientConfig(caFile, keyFile, certFile string) (*tls.Config, error) {
 	config := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	return config, nil
@@ -75,7 +79,8 @@ func NewSimpleClientConfig(caFile string) (*tls.Config, error) {
 	}
 
 	config := &tls.Config{
-		RootCAs: caCertPool,
+		RootCAs:    caCertPool,
+		MinVersion: tls.VersionTLS13,
 	}
 
 	return config, nil

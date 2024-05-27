@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"path/filepath"
 
 	// "crypto/x509"
 	"fmt"
@@ -284,6 +285,7 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 	if cacert == "" {
 		return fmt.Errorf("cannot use TLS without a CA cert, see config key certs.cacertfile")
 	}
+	cacert = filepath.Clean(cacert)
 	_, err = os.ReadFile(cacert)
 	if err != nil {
 		return fmt.Errorf("error reading CA file '%s': %v", cacert, err)

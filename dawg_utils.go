@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"encoding/csv"
 	"io"
@@ -19,6 +20,7 @@ import (
 )
 
 func ParseCSV(srcfile string, dstmap map[string]*TapirName, dontsort bool) ([]string, error) {
+	srcfile = filepath.Clean(srcfile)
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err
@@ -76,6 +78,7 @@ func ParseCSV(srcfile string, dstmap map[string]*TapirName, dontsort bool) ([]st
 // Two modes of operation: either return a (potentially large) []string with sorted output
 // *or* update the dstmap of TapirNames directly and don't return the result
 func ParseText(srcfile string, dstmap map[string]*TapirName, dontsort bool) ([]string, error) {
+	srcfile = filepath.Clean(srcfile)
 	ifd, err := os.Open(srcfile)
 	if err != nil {
 		return nil, err

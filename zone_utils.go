@@ -99,11 +99,17 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	log.Printf("FetchFromUpstream: %s has %d apex RRs +  %d RRs",
 		zd.ZoneName, zonedata.ApexLen, len(zonedata.BodyRRs))
 
-	zonedata.Sync()
+	err = zonedata.Sync()
+	if err != nil {
+		log.Printf("FetchFromUpstream: unable to call Sync(): %s", err)
+	}
 
 	if viper.GetBool("service.debug") {
 		filedir := viper.GetString("log.filedir")
-		zonedata.WriteFile(fmt.Sprintf("%s/%s.tapir-em", filedir, zd.ZoneName), log.Default())
+		_, err := zonedata.WriteFile(fmt.Sprintf("%s/%s.tapir-em", filedir, zd.ZoneName), log.Default())
+		if err != nil {
+			log.Printf("FetchFromUpstream: Error from WriteFile(): %v", err)
+		}
 	}
 
 	zd.RRs = zonedata.RRs

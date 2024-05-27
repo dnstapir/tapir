@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -100,6 +101,7 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
 	zd.Logger.Printf("ReadZoneFile: zone: %s filename: %s", zd.ZoneName, filename)
 
+	filename = filepath.Clean(filename)
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, fmt.Errorf("ReadZoneFile: Error: failed to read %s: %v", filename, err)
@@ -234,7 +236,8 @@ func (zd *ZoneData) WriteTmpFile(lg *log.Logger) (string, error) {
 }
 
 func (zd *ZoneData) WriteFile(filename string, lg *log.Logger) (string, error) {
-	fname := fmt.Sprintf("%s/%s", viper.GetString("external.filedir"), filename)
+	fname := filepath.Join(viper.GetString("external.filedir"), filename)
+	fname = filepath.Clean(fname)
 	f, err := os.Create(fname)
 	if err != nil {
 		return fname, err
@@ -276,7 +279,7 @@ func (zd *ZoneData) WriteZoneToFile(f *os.File) error {
 	}
 	totalbytes += bytes
 	// fmt.Printf("Size(zonedata): %d\n", size.Of(zonedata))
-	writer.Flush()
+	err = writer.Flush()
 
 	return err
 }

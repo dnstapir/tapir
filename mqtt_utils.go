@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -74,6 +75,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	}
 
 	// Setup CA cert for validating the MQTT connection
+	cacertFile = filepath.Clean(cacertFile)
 	caCert, err := os.ReadFile(cacertFile)
 	if err != nil {
 		return nil, err
@@ -108,6 +110,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	} else if signingKeyFile == "" {
 		lg.Printf("MQTT signing key file not specified in config, publish not possible")
 	} else {
+		signingKeyFile = filepath.Clean(signingKeyFile)
 		signingKey, err := os.ReadFile(signingKeyFile)
 		if err != nil {
 			return nil, err
@@ -136,6 +139,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	} else if signingPubFile == "" {
 		lg.Printf("MQTT validator pub file not specified in config, subscribe not possible")
 	} else {
+		signingPubFile = filepath.Clean(signingPubFile)
 		signingPub, err := os.ReadFile(signingPubFile)
 		if err != nil {
 			return nil, err
@@ -445,7 +449,10 @@ func (me *MqttEngine) SetupInterruptHandler() {
 	go func() {
 		for range ic {
 			fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
-			me.StopEngine()
+			_, err := me.StopEngine()
+			if err != nil {
+				fmt.Printf("Failed stopping MQTT Engine: %s\n", err)
+			}
 		}
 	}()
 }
@@ -486,6 +493,7 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 	if filename == "" {
 		log.Printf("MQTT validator validator key for topic %s file not specified in config, subscribe not possible", topic)
 	} else {
+		filename = filepath.Clean(filename)
 		signingPub, err := os.ReadFile(filename)
 		if err != nil {
 			return nil, err

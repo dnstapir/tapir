@@ -42,6 +42,9 @@ func APIping(appName string, boottime time.Time) func(w http.ResponseWriter, r *
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Println("APIping: error encoding response:", err)
+		}
 	}
 }
