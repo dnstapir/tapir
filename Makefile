@@ -14,6 +14,14 @@ build:	gen-mqtt-msg-new-qname.go
 # tapir.pb.go:	tapir.proto
 # 	protoc -I=. --go_out=. tapir.proto
 
+lint:
+	go fmt ./...
+	go vet ./...
+	staticcheck ./...
+	gosec ./...
+	golangci-lint run
+
+
 # gen-mqtt-msg-new-qname.go: checkout/events-mqtt-message-new_qname.json
 # 	go-jsonschema checkout/events-mqtt-message-new_qname.json --package tapir --tags json --only-models --output gen-mqtt-msg-new-qname.go
 

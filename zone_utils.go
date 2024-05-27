@@ -162,7 +162,7 @@ func (zd *ZoneData) PrintOwners() {
 		zd.Logger.Printf("owner name\tindex\n")
 		for i, v := range zd.Owners {
 			rrtypes := []string{}
-			for t, _ := range v.RRtypes {
+			for t := range v.RRtypes {
 				rrtypes = append(rrtypes, dns.TypeToString[t])
 			}
 			zd.Logger.Printf("%d\t%s\t%s\n", i, v.Name, strings.Join(rrtypes, ", "))

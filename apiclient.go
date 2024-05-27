@@ -9,11 +9,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"io"
 
-	// "crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -238,41 +236,6 @@ func (api *ApiClient) AddAuthHeader(req *http.Request) {
 	}
 }
 
-func (api *ApiClient) xxxRequest(method, endpoint string, data []byte) (int, []byte, error) {
-	api.UrlReport(method, endpoint, data)
-
-	req, err := http.NewRequest(method, api.BaseUrl+endpoint, bytes.NewBuffer(data))
-	req.Header.Add("Content-Type", "application/json")
-	if api.AuthMethod == "X-API-Key" {
-		req.Header.Add("X-API-Key", api.ApiKey)
-	} else if api.AuthMethod == "Authorization" {
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", api.ApiKey))
-	} else if api.AuthMethod == "none" {
-		// do not add any authentication header at all
-	}
-	resp, err := api.HttpClient.Do(req)
-
-	if err != nil {
-		return 501, nil, err
-	}
-
-	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
-
-	if api.Debug {
-		var prettyJSON bytes.Buffer
-
-		error := json.Indent(&prettyJSON, buf, "", "  ")
-		if error != nil {
-			log.Println("JSON parse error: ", error)
-		}
-		fmt.Printf("requestHelper: received %d bytes of response data: %s\n", len(buf), prettyJSON.String())
-	}
-
-	// not bothering to copy buf, this is a one-off
-	return resp.StatusCode, buf, err
-}
-
 func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOnError bool) (int, []byte, error) {
 	bytebuf := new(bytes.Buffer)
 	err := json.NewEncoder(bytebuf).Encode(data)
@@ -309,7 +272,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 		if strings.Contains(err.Error(), "connection refused") {
 			msg = fmt.Sprintf("Connection refused. Server process probably not running.")
 		} else {
-			fmt.Sprintf("Error from API request %s: %v", method, err)
+			msg = fmt.Sprintf("Error from API request %s: %v", method, err)
 		}
 		if dieOnError {
 			fmt.Printf("%s\n", msg)
@@ -321,6 +284,10 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 
 	status := resp.StatusCode
 	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("RequestNG: io.ReadAll(): %s", err)
+		return http.StatusInternalServerError, nil, fmt.Errorf("RequestNG: io.ReadAll: %w", err)
+	}
 	defer resp.Body.Close()
 
 	if api.Debug {

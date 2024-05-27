@@ -132,7 +132,7 @@ func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 
 	if err := zp.Err(); err != nil {
 		zd.Logger.Printf("ReadZoneFile: Error from ZoneParser(%s): %v", zd.ZoneName, err)
-		return zd.SOA.Serial, fmt.Errorf("Error from ZoneParser: %v", err)
+		return zd.SOA.Serial, fmt.Errorf("error from ZoneParser: %v", err)
 	}
 	zd.Logger.Printf("*** Zone %s read from file. No errors.", zd.ZoneName)
 
@@ -216,7 +216,6 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 	}
 	// zd.Logger.Printf("ZoneName: %s, zonetype: %d", zd.ZoneName, zd.ZoneType)
 	zd.Data[owner] = odmap
-	return
 }
 
 func (zd *ZoneData) WriteTmpFile(lg *log.Logger) (string, error) {
@@ -320,9 +319,9 @@ func (zd *ZoneData) ComputeIndices() {
 		soas.RRs = soas.RRs[:1]
 		zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA] = soas
 	}
-	if zd.Debug {
-		//		zd.PrintOwners()
-	}
+	// if zd.Debug {
+	//		zd.PrintOwners()
+	//	}
 }
 
 func (zd *ZoneData) PrintRRs() {
@@ -348,30 +347,27 @@ func (zd *ZoneData) PrintRRs() {
 }
 
 func PrintRR(rr dns.RR) {
-	switch rr.(type) {
+	switch rr := rr.(type) {
 	case *dns.DNSKEY:
-		k, _ := rr.(*dns.DNSKEY)
 		fmt.Printf("%s\tIN\tDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-			k.Header().Name, k.Flags, k.Protocol, k.Algorithm,
-			k.PublicKey[0:30], k.PublicKey[len(k.PublicKey)-30:],
-			k.KeyTag())
+			rr.Header().Name, rr.Header().Ttl, rr.Header().Rrtype, rr.Header().Class,
+			rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+			rr.KeyTag())
 
 	case *dns.CDNSKEY:
-		c, _ := rr.(*dns.CDNSKEY)
 		fmt.Printf("%s\tIN\tCDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-			c.Header().Name, c.Flags, c.Protocol, c.Algorithm,
-			c.PublicKey[0:30], c.PublicKey[len(c.PublicKey)-30:],
-			c.KeyTag())
+			rr.Header().Name, rr.Header().Ttl, rr.Header().Rrtype, rr.Header().Class,
+			rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+			rr.KeyTag())
 
 	case *dns.RRSIG:
-		rs, _ := rr.(*dns.RRSIG)
 		fmt.Printf("%s\t%d\tIN\tRRSIG\t%s\t%d %d %d exp='%s' inc='%s' %d %s %s...%s\n",
-			rs.Header().Name, rs.Header().Ttl, dns.TypeToString[rs.TypeCovered],
-			rs.Algorithm, rs.Labels, rs.OrigTtl,
-			ParseDNSTime(rs.Expiration).Format("2006-01-02 15:04:05"),
-			ParseDNSTime(rs.Inception).Format("2006-01-02 15:04:05"),
-			rs.KeyTag, rs.SignerName, rs.Signature[0:20],
-			rs.Signature[len(rs.Signature)-20:])
+			rr.Header().Name, rr.Header().Ttl, dns.TypeToString[rr.Header().Rrtype],
+			rr.Algorithm, rr.Labels, rr.OrigTtl,
+			ParseDNSTime(rr.Expiration).Format("2006-01-02 15:04:05"),
+			ParseDNSTime(rr.Inception).Format("2006-01-02 15:04:05"),
+			rr.KeyTag, rr.SignerName, rr.Signature[0:20],
+			rr.Signature[len(rr.Signature)-20:])
 
 	default:
 		fmt.Printf("%s\n", rr.String())
@@ -380,30 +376,27 @@ func PrintRR(rr dns.RR) {
 
 func PrintRRs(rrs []dns.RR) {
 	for _, rr := range rrs {
-		switch rr.(type) {
+		switch rr := rr.(type) {
 		case *dns.DNSKEY:
-			k, _ := rr.(*dns.DNSKEY)
 			fmt.Printf("%s\tIN\tDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-				k.Header().Name, k.Flags, k.Protocol, k.Algorithm,
-				k.PublicKey[0:30], k.PublicKey[len(k.PublicKey)-30:],
-				k.KeyTag())
+				rr.Header().Name, rr.Header().Ttl, rr.Header().Rrtype, rr.Header().Class,
+				rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+				rr.KeyTag())
 
 		case *dns.CDNSKEY:
-			c, _ := rr.(*dns.CDNSKEY)
 			fmt.Printf("%s\tIN\tCDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-				c.Header().Name, c.Flags, c.Protocol, c.Algorithm,
-				c.PublicKey[0:30], c.PublicKey[len(c.PublicKey)-30:],
-				c.KeyTag())
+				rr.Header().Name, rr.Header().Ttl, rr.Header().Rrtype, rr.Header().Class,
+				rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+				rr.KeyTag())
 
 		case *dns.RRSIG:
-			rs, _ := rr.(*dns.RRSIG)
 			fmt.Printf("%s\t%d\tIN\tRRSIG\t%s\t%d %d %d exp='%s' inc='%s' %d %s %s...%s\n",
-				rs.Header().Name, rs.Header().Ttl, dns.TypeToString[rs.TypeCovered],
-				rs.Algorithm, rs.Labels, rs.OrigTtl,
-				ParseDNSTime(rs.Expiration).Format("2006-01-02 15:04:05"),
-				ParseDNSTime(rs.Inception).Format("2006-01-02 15:04:05"),
-				rs.KeyTag, rs.SignerName, rs.Signature[0:20],
-				rs.Signature[len(rs.Signature)-20:])
+				rr.Header().Name, rr.Header().Ttl, dns.TypeToString[rr.Header().Rrtype],
+				rr.Algorithm, rr.Labels, rr.OrigTtl,
+				ParseDNSTime(rr.Expiration).Format("2006-01-02 15:04:05"),
+				ParseDNSTime(rr.Inception).Format("2006-01-02 15:04:05"),
+				rr.KeyTag, rr.SignerName, rr.Signature[0:20],
+				rr.Signature[len(rr.Signature)-20:])
 
 		default:
 			fmt.Printf("%s\n", rr.String())
