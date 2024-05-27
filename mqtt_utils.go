@@ -314,21 +314,21 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					outbox.TimeStamp = time.Now()
 					err = jenc.Encode(outbox.Data)
 					if err != nil {
-						lg.Printf("Error from json.NewEncoder: %v", err)
+						lg.Printf("MQTT Engine: Error from json.NewEncoder: %v", err)
 						continue
 					}
 				}
 
 				sMsg, err := jws.Sign(buf.Bytes(), jws.WithJSON(), jws.WithKey(jwa.ES256, me.PrivKey))
 				if err != nil {
-					lg.Printf("failed to create JWS message: %s", err)
+					lg.Printf("MQTT Engine: failed to create JWS message: %s", err)
 				}
 
 				if _, err = me.Client.Publish(context.Background(), &paho.Publish{
 					Topic:   me.Topic,
 					Payload: sMsg,
 				}); err != nil {
-					lg.Println("error sending message:", err)
+					lg.Printf("MQTT Engine: error sending message: %v", err)
 					continue
 				}
 				if GlobalCF.Debug {
@@ -345,25 +345,26 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				me.MsgTimeStamp[inbox.Topic] = time.Now()
 				validatorkey := me.ValidatorKeys[inbox.Topic]
 				if validatorkey == nil {
-					lg.Printf("Danger Will Robinson: validator key for MQTT topic %s not found", inbox.Topic)
-				}
-				payload, err := jws.Verify(inbox.Payload, jws.WithKey(jwa.ES256, validatorkey))
-				if err != nil {
-					pkg.Error = true
-					pkg.ErrorMsg = fmt.Sprintf("failed to verify message: %v", err)
-					lg.Printf("MQTT Engine: failed to verify message: %v", err)
-					// log.Printf("MQTT Engine: received msg: %v", string(inbox.Payload))
+					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Topic)
 				} else {
-					lg.Printf("verified message: %s", string(payload))
-					r := bytes.NewReader(payload)
-					err = json.NewDecoder(r).Decode(&pkg.Data)
+					payload, err := jws.Verify(inbox.Payload, jws.WithKey(jwa.ES256, validatorkey))
 					if err != nil {
 						pkg.Error = true
-						pkg.ErrorMsg = fmt.Sprintf("failed to decide json: %v", err)
+						pkg.ErrorMsg = fmt.Sprintf("MQTT Engine: failed to verify message: %v", err)
+						lg.Printf("MQTT Engine: failed to verify message: %v", err)
+						// log.Printf("MQTT Engine: received msg: %v", string(inbox.Payload))
+					} else {
+						lg.Printf("MQTT Engine: verified message: %s", string(payload))
+						r := bytes.NewReader(payload)
+						err = json.NewDecoder(r).Decode(&pkg.Data)
+						if err != nil {
+							pkg.Error = true
+							pkg.ErrorMsg = fmt.Sprintf("MQTT Engine: failed to decode json: %v", err)
+						}
 					}
-				}
 
-				me.SubscribeChan <- pkg
+					me.SubscribeChan <- pkg
+				}
 
 			case cmd := <-me.CmdChan:
 				fmt.Printf("MQTT Engine: %s command received\n", cmd.Cmd)
@@ -392,7 +393,7 @@ func (me *MqttEngine) AddTopic(topic string, validatorkey *ecdsa.PublicKey) erro
 		log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
 		return nil
 	}
-	return fmt.Errorf("invalid topic or validator key")
+	return fmt.Errorf("invalid topic '%s' or validator key '%v'", topic, validatorkey)
 }
 
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkg, chan MqttPkg, error) {
@@ -488,12 +489,14 @@ func PrintTapirMqttPkg(pkg MqttPkg, lg *log.Logger) {
 }
 
 func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
+	log.Printf("FetchMqttValidatorKey: topic %s, filename %s", topic, filename)
 	var PubKey *ecdsa.PublicKey
 	if filename == "" {
 		log.Printf("MQTT validator validator key for topic %s file not specified in config, subscribe not possible", topic)
 	} else {
 		signingPub, err := os.ReadFile(filename)
 		if err != nil {
+			log.Printf("MQTT validator validator key for topic %s: failed to read file %s: %v", topic, filename, err)
 			return nil, err
 		}
 
@@ -504,6 +507,7 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 		}
 		tmp, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
 		if err != nil {
+			log.Printf("MQTT validator validator key for topic %s: failed to parse key: %v", topic, err)
 			return nil, err
 		}
 		PubKey = tmp.(*ecdsa.PublicKey)

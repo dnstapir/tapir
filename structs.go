@@ -14,6 +14,7 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/miekg/dns"
 	"github.com/smhanov/dawg"
+	// "your_project_path/tapirpb" // Adjust this import path to the actual path where your generated protobuf files are located
 )
 
 type ZoneType uint8
@@ -24,6 +25,13 @@ const (
 	SliceZone
 	RpzZone
 )
+
+var ZoneTypeToString = map[ZoneType]string{
+	XfrZone:   "xfr",
+	MapZone:   "map",
+	SliceZone: "slice",
+	RpzZone:   "rpz",
+}
 
 type ZoneData struct {
 	ZoneName   string
@@ -71,6 +79,7 @@ type CommandPost struct {
 	Zone      string
 	Name      string // Domain name to add/remove an RPZ action for
 	ListType  string
+	ListName  string // used in the export-greylist command
 	Policy    string // RPZ policy
 	Action    string // RPZ action (OBE)
 	RpzSource string // corresponds with the sourceid in tem.yaml
@@ -82,6 +91,20 @@ type CommandResponse struct {
 	Zone     string
 	Serial   uint32
 	Data     []byte
+	Msg      string
+	Error    bool
+	ErrorMsg string
+}
+
+type BootstrapPost struct {
+	Command  string
+	ListName string
+	Encoding string
+}
+
+type BootstrapResponse struct {
+	Time     time.Time
+	Status   string
 	Msg      string
 	Error    bool
 	ErrorMsg string
@@ -162,10 +185,11 @@ type MqttPkg struct {
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
+// TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
 	SrcName   string // must match a defined source
 	Creator   string // "spark"	|| "tapir-cli"
-	MsgType   string // "intelupdate", "reset", ...
+	MsgType   string // "intel-update", "reset", "global-config"...
 	ListType  string // "{white|black|grey}list"
 	Added     []Domain
 	Removed   []Domain
@@ -238,8 +262,8 @@ type WBGlist struct {
 	RpzZoneName string
 	RpzUpstream string
 	RpzSerial   int
-	Names       map[string]*TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
-	ReaperData  map[time.Time]map[string]*TapirName
+	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
+	ReaperData  map[time.Time]map[string]bool
 	// Trie        trie.Trie
 }
 
@@ -260,3 +284,47 @@ type RpzName struct {
 	RR     *dns.RR
 	Action Action
 }
+
+// func (w *WBGlist) ProtoReflect() protoreflect.Message {
+// Assuming you have a generated protobuf message for WBGlist
+//	return &tapirpb.WBGlist{
+//		Name:        w.Name,
+//		Description: w.Description,
+//		Type:        w.Type,
+//		SrcFormat:   w.SrcFormat,
+//		Format:      w.Format,
+//		Datasource:  w.Datasource,
+//		Filename:    w.Filename,
+//		Upstream:    w.Upstream,
+//		RpzZoneName: w.RpzZoneName,
+//		RpzUpstream: w.RpzUpstream,
+//		RpzSerial:   int32(w.RpzSerial),
+//		Names:       convertNamesToProto(w.Names),
+//		ReaperData:  convertReaperDataToProto(w.ReaperData),
+//	}
+//}
+
+// func convertNamesToProto(names map[string]TapirName) map[string]*tapirpb.TapirName {
+//	protoNames := make(map[string]*tapirpb.TapirName)
+//	for k, v := range names {
+//		protoNames[k] = &tapirpb.TapirName{
+//			Name:      v.Name,
+//			TimeAdded: timestamppb.New(v.TimeAdded),
+//			TTL:       durationpb.New(v.TTL),
+//			TagMask:   uint32(v.TagMask),
+//			NumTags:   uint32(v.NumTags),
+//			Action:    uint32(v.Action),
+//		}
+//	}
+//	return protoNames
+// }
+
+// func convertReaperDataToProto(reaperData map[time.Time]map[string]bool) map[string]*tapirpb.ReaperData {
+// 	protoReaperData := make(map[string]*tapirpb.ReaperData)
+// 	for k, v := range reaperData {
+// 		protoReaperData[k.Format(time.RFC3339)] = &tapirpb.ReaperData{
+// 			Entries: v,
+// 		}
+// 	}
+// 	return protoReaperData
+// }

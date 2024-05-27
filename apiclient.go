@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"io"
+
 	// "crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -54,112 +56,6 @@ type ApiClient struct {
 	Verbose    bool
 	Debug      bool
 	HttpClient *http.Client
-}
-
-func NewApiClient(params ApiClient) *ApiClient {
-	var client *http.Client
-	var path string
-
-	if params.Timeout > 20 {
-		params.Timeout = 20
-	}
-
-	if params.ClientName == "" {
-		params.ClientName = "tapir-cli"
-	}
-
-	ac := ApiClient{
-		BaseUrl:    params.BaseUrl,
-		AuthMethod: params.AuthMethod,
-		ApiKey:     params.ApiKey,
-		Timeout:    params.Timeout,
-		ClientName: params.ClientName,
-		UseTLS:     params.UseTLS,
-		Verbose:    GlobalCF.Verbose,
-		Debug:      GlobalCF.Debug,
-	}
-
-	var protocol = "http"
-	if ac.UseTLS {
-		protocol = "https"
-	}
-
-	if ac.BaseUrl == "" {
-		log.Fatalf("BaseUrl not defined. Abort.")
-	}
-	if ac.Debug {
-		fmt.Printf("NewApiClient: Using baseurl \"%s\"\n", ac.BaseUrl)
-	}
-
-	// if the service string contains either https:// or http:// then that
-	// will override the usetls parameter.
-	if strings.HasPrefix(strings.ToLower(ac.BaseUrl), "https://") {
-		ac.UseTLS = true
-		protocol = "https"
-		ac.BaseUrl = ac.BaseUrl[8:]
-	} else if strings.HasPrefix(strings.ToLower(ac.BaseUrl), "http://") {
-		ac.UseTLS = false
-		protocol = "http"
-		ac.BaseUrl = ac.BaseUrl[7:]
-	}
-
-	ip, port, err := net.SplitHostPort(ac.BaseUrl)
-	if err != nil {
-		log.Fatalf("NewApiClient: Error from SplitHostPort: %s. Abort.", err)
-	}
-
-	if strings.Contains(port, "/") {
-		portparts := strings.Split(port, "/")
-		port = portparts[0]
-		path = "/" + strings.Join(portparts[1:], "/")
-	}
-
-	addr := net.ParseIP(ip)
-	if addr == nil {
-		log.Fatalf("NewApiClient: Illegal address specification: %s. Abort.", ip)
-	}
-
-	ac.BaseUrl = fmt.Sprintf("%s://%s:%s%s", protocol, addr.String(), port, path)
-
-	if ac.Debug {
-		fmt.Printf("NAC: Debug: ip: %s port: %s path: '%s'. BaseURL: %s\n",
-			ip, port, path, ac.BaseUrl)
-	}
-
-	if ac.UseTLS {
-		cacert := viper.GetString("certs.cacertfile")
-		if cacert == "" {
-			log.Fatalf("Cannot use TLS without a CA cert, see config key certs.cacertfile")
-		}
-
-		cd := viper.GetString("certs.certdir") + "/clients"
-
-		tlsConfig, err := NewClientConfig(viper.GetString("certs.cacertfile"),
-			fmt.Sprintf("%s/%s.key", cd, ac.ClientName),
-			fmt.Sprintf("%s/%s.crt", cd, ac.ClientName))
-		if err != nil {
-			log.Fatalf("NewApiClient: Error: Could not set up TLS: %v", err)
-		} else {
-			client = &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
-				Timeout: time.Duration(ac.Timeout) * time.Second,
-			}
-		}
-	} else {
-		client = &http.Client{
-			Timeout: time.Duration(ac.Timeout) * time.Second,
-			// CheckRedirect: redirectPolicyFunc,
-		}
-	}
-
-	if ac.AuthMethod != "Authorization" && ac.AuthMethod != "X-API-Key" && ac.AuthMethod != "none" {
-		log.Fatalf("NewApiClient: unknown http auth method: %s", ac.AuthMethod)
-	}
-
-	ac.HttpClient = client
-	return &ac
 }
 
 func (api *ApiClient) Setup() error {
@@ -342,7 +238,7 @@ func (api *ApiClient) AddAuthHeader(req *http.Request) {
 	}
 }
 
-func (api *ApiClient) Request(method, endpoint string, data []byte) (int, []byte, error) {
+func (api *ApiClient) xxxRequest(method, endpoint string, data []byte) (int, []byte, error) {
 	api.UrlReport(method, endpoint, data)
 
 	req, err := http.NewRequest(method, api.BaseUrl+endpoint, bytes.NewBuffer(data))
@@ -424,21 +320,27 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 	}
 
 	status := resp.StatusCode
+	buf, err := io.ReadAll(resp.Body)
 	defer resp.Body.Close()
+
 	if api.Debug {
 		fmt.Printf("Status from %s: %d\n", method, status)
+		if status != http.StatusOK {
+			fmt.Printf("api.RequestNG: Status is != http.StatusOK: returned bytes: %s\n", string(buf))
+		}
 	}
-
-	buf, err := ioutil.ReadAll(resp.Body)
 
 	if api.Debug {
 		var prettyJSON bytes.Buffer
 
-		error := json.Indent(&prettyJSON, buf, "", "  ")
-		if error != nil {
-			log.Println("JSON parse error: ", error)
+		// XXX: This doesn't work. It isn't necessary that the response is JSON.
+		err := json.Indent(&prettyJSON, buf, "", "  ")
+		if err != nil {
+			// XXX: Let's assume that the response isn't JSON.
+			// log.Println("JSON parse error: ", err)
+		} else {
+			fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), string(buf))
 		}
-		fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), prettyJSON.String())
 	}
 
 	// not bothering to copy buf, this is a one-off
