@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+
 	// "crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -413,7 +414,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 		if strings.Contains(err.Error(), "connection refused") {
 			msg = fmt.Sprintf("Connection refused. Server process probably not running.")
 		} else {
-			fmt.Sprintf("Error from API request %s: %v", method, err)
+			msg = fmt.Sprintf("Error from API request %s: %v", method, err)
 		}
 		if dieOnError {
 			fmt.Printf("%s\n", msg)
