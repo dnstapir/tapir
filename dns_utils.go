@@ -268,16 +268,14 @@ func (zd *ZoneData) WriteZoneToFile(f *os.File) error {
 				return err
 			}
 			totalbytes += bytes
-			bytes = 0
 			// fmt.Printf("Size(zonedata): %d\n", size.Of(zonedata))
 			zonedata = ""
 		}
 	}
-	bytes, err = writer.WriteString(zonedata)
+	_, err = writer.WriteString(zonedata)
 	if err != nil {
 		return err
 	}
-	totalbytes += bytes
 	// fmt.Printf("Size(zonedata): %d\n", size.Of(zonedata))
 	err = writer.Flush()
 

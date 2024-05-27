@@ -168,13 +168,13 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		return nil, err
 	}
 
-	var tag string
-	if me.CanPublish {
-		tag += "PUB"
-	}
-	if me.CanSubscribe {
-		tag += "SUB"
-	}
+	//var tag string
+	//if me.CanPublish {
+	//	tag += "PUB"
+	//}
+	//if me.CanSubscribe {
+	//	tag += "SUB"
+	//}
 
 	//	logger := log.New(os.Stdout, fmt.Sprintf("%s (%s): ", tag, me.ClientID), log.LstdFlags)
 
