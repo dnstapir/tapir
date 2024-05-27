@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	// "github.com/DmitriyVTitov/size"
@@ -98,110 +97,6 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 	return first_soa.Serial, nil
 }
 
-// XXX: This function is not used, as we only support outbound xfrs for our
-// own RPZ zone.
-func (zd *ZoneData) xxxZoneTransferOut(w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
-	if zd.Verbose {
-		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zd.ZoneName,
-			len(zd.RRs), w.RemoteAddr().String())
-	}
-
-	zone := dns.Fqdn(zd.ZoneName)
-	if zd.ZoneType != RpzZone {
-		zd.Sync()
-	}
-
-	if zd.Verbose {
-		zd.Logger.Printf("ZoneTransferOut: Will try to serve zone %s (%d RRs) to  %v\n", zone,
-			len(zd.RRs), w.RemoteAddr().String())
-	}
-
-	outbound_xfr := make(chan *dns.Envelope)
-	tr := new(dns.Transfer)
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		err := tr.Out(w, r, outbound_xfr)
-		if err != nil {
-			zd.Logger.Printf("ZoneTransferOut: Error from tr.Out: %v", err)
-		}
-		wg.Done()
-	}()
-
-	count := 0
-	send_count := 0
-	env := dns.Envelope{}
-
-	//	env.RR = append(env.RR, dns.RR(&zd.SOA))
-	//	total_sent := 1
-	var total_sent int
-
-	switch zd.ZoneType {
-	case RpzZone:
-		env.RR = append(env.RR, dns.RR(&zd.SOA))
-		env.RR = append(env.RR, zd.NSrrs...)
-		// for _, rr := range zd.RRs {
-		for _, rpzn := range zd.RpzMap {
-			env.RR = append(env.RR, *rpzn.RR) // should do proper slice magic instead
-			count++
-			if count >= 500 {
-				send_count++
-				total_sent += len(env.RR)
-				// fmt.Printf("Sending %d RRs\n", len(env.RR))
-				outbound_xfr <- &env
-				// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
-				env = dns.Envelope{}
-				count = 0
-			}
-		}
-
-	case SliceZone:
-		for _, ownerdata := range zd.Owners {
-			for rrt, rrset := range ownerdata.RRtypes {
-				if ownerdata.Name == zd.ZoneName {
-					zd.Logger.Printf("Apex: %s\t%s\n", zd.ZoneName, dns.TypeToString[rrt])
-				}
-
-				switch rrt {
-				case dns.TypeSOA, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeNSEC3PARAM:
-					continue
-				}
-
-				for _, rr := range rrset.RRs {
-					env.RR = append(env.RR, rr) // should do proper slice magic instead
-					count++
-					if count >= 500 {
-						send_count++
-						total_sent += len(env.RR)
-						// fmt.Printf("Sending %d RRs\n", len(env.RR))
-						outbound_xfr <- &env
-						// fmt.Printf("Sent %d RRs: done\n", len(env.RR))
-						env = dns.Envelope{}
-						count = 0
-					}
-				}
-			}
-		}
-	}
-
-	env.RR = append(env.RR, dns.RR(&zd.SOA)) // trailing SOA
-
-	total_sent += len(env.RR)
-	zd.Logger.Printf("ZoneTransferOut: Zone %s: Sending final %d RRs (including trailing SOA, total sent %d)\n",
-		zd.ZoneName, len(env.RR), total_sent)
-	outbound_xfr <- &env
-
-	close(outbound_xfr)
-	wg.Wait() // wait until everything is written out
-	w.Close() // close connection
-
-	zd.Logger.Printf("ZoneTransferOut: %s: Sent %d RRs (including SOA twice).", zone, total_sent)
-
-	return total_sent - 1, nil
-}
-
 func (zd *ZoneData) ReadZoneFile(filename string) (uint32, error) {
 	zd.Logger.Printf("ReadZoneFile: zone: %s filename: %s", zd.ZoneName, filename)
 
@@ -237,7 +132,7 @@ func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 
 	if err := zp.Err(); err != nil {
 		zd.Logger.Printf("ReadZoneFile: Error from ZoneParser(%s): %v", zd.ZoneName, err)
-		return zd.SOA.Serial, fmt.Errorf("Error from ZoneParser: %v", err)
+		return zd.SOA.Serial, fmt.Errorf("error from ZoneParser: %v", err)
 	}
 	zd.Logger.Printf("*** Zone %s read from file. No errors.", zd.ZoneName)
 
@@ -323,7 +218,6 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 	}
 	// zd.Logger.Printf("ZoneName: %s, zonetype: %d", zd.ZoneName, zd.ZoneType)
 	zd.Data[owner] = odmap
-	return
 }
 
 func (zd *ZoneData) WriteTmpFile(lg *log.Logger) (string, error) {
@@ -427,9 +321,6 @@ func (zd *ZoneData) ComputeIndices() {
 		soas.RRs = soas.RRs[:1]
 		zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA] = soas
 	}
-	if zd.Debug {
-		//		zd.PrintOwners()
-	}
 }
 
 func (zd *ZoneData) PrintRRs() {
@@ -455,30 +346,27 @@ func (zd *ZoneData) PrintRRs() {
 }
 
 func PrintRR(rr dns.RR) {
-	switch rr.(type) {
+	switch rr := rr.(type) {
 	case *dns.DNSKEY:
-		k, _ := rr.(*dns.DNSKEY)
 		fmt.Printf("%s\tIN\tDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-			k.Header().Name, k.Flags, k.Protocol, k.Algorithm,
-			k.PublicKey[0:30], k.PublicKey[len(k.PublicKey)-30:],
-			k.KeyTag())
+			rr.Header().Name, rr.Flags, rr.Protocol, rr.Algorithm,
+			rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+			rr.KeyTag())
 
 	case *dns.CDNSKEY:
-		c, _ := rr.(*dns.CDNSKEY)
 		fmt.Printf("%s\tIN\tCDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-			c.Header().Name, c.Flags, c.Protocol, c.Algorithm,
-			c.PublicKey[0:30], c.PublicKey[len(c.PublicKey)-30:],
-			c.KeyTag())
+			rr.Header().Name, rr.Flags, rr.Protocol, rr.Algorithm,
+			rr.PublicKey[0:30], rr.PublicKey[len(rr.PublicKey)-30:],
+			rr.KeyTag())
 
 	case *dns.RRSIG:
-		rs, _ := rr.(*dns.RRSIG)
 		fmt.Printf("%s\t%d\tIN\tRRSIG\t%s\t%d %d %d exp='%s' inc='%s' %d %s %s...%s\n",
-			rs.Header().Name, rs.Header().Ttl, dns.TypeToString[rs.TypeCovered],
-			rs.Algorithm, rs.Labels, rs.OrigTtl,
-			ParseDNSTime(rs.Expiration).Format("2006-01-02 15:04:05"),
-			ParseDNSTime(rs.Inception).Format("2006-01-02 15:04:05"),
-			rs.KeyTag, rs.SignerName, rs.Signature[0:20],
-			rs.Signature[len(rs.Signature)-20:])
+			rr.Header().Name, rr.Header().Ttl, dns.TypeToString[rr.TypeCovered],
+			rr.Algorithm, rr.Labels, rr.OrigTtl,
+			ParseDNSTime(rr.Expiration).Format("2006-01-02 15:04:05"),
+			ParseDNSTime(rr.Inception).Format("2006-01-02 15:04:05"),
+			rr.KeyTag, rr.SignerName, rr.Signature[0:20],
+			rr.Signature[len(rr.Signature)-20:])
 
 	default:
 		fmt.Printf("%s\n", rr.String())
@@ -487,34 +375,7 @@ func PrintRR(rr dns.RR) {
 
 func PrintRRs(rrs []dns.RR) {
 	for _, rr := range rrs {
-		switch rr.(type) {
-		case *dns.DNSKEY:
-			k, _ := rr.(*dns.DNSKEY)
-			fmt.Printf("%s\tIN\tDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-				k.Header().Name, k.Flags, k.Protocol, k.Algorithm,
-				k.PublicKey[0:30], k.PublicKey[len(k.PublicKey)-30:],
-				k.KeyTag())
-
-		case *dns.CDNSKEY:
-			c, _ := rr.(*dns.CDNSKEY)
-			fmt.Printf("%s\tIN\tCDNSKEY\t%d %d %d\t%s...%s [%d]\n",
-				c.Header().Name, c.Flags, c.Protocol, c.Algorithm,
-				c.PublicKey[0:30], c.PublicKey[len(c.PublicKey)-30:],
-				c.KeyTag())
-
-		case *dns.RRSIG:
-			rs, _ := rr.(*dns.RRSIG)
-			fmt.Printf("%s\t%d\tIN\tRRSIG\t%s\t%d %d %d exp='%s' inc='%s' %d %s %s...%s\n",
-				rs.Header().Name, rs.Header().Ttl, dns.TypeToString[rs.TypeCovered],
-				rs.Algorithm, rs.Labels, rs.OrigTtl,
-				ParseDNSTime(rs.Expiration).Format("2006-01-02 15:04:05"),
-				ParseDNSTime(rs.Inception).Format("2006-01-02 15:04:05"),
-				rs.KeyTag, rs.SignerName, rs.Signature[0:20],
-				rs.Signature[len(rs.Signature)-20:])
-
-		default:
-			fmt.Printf("%s\n", rr.String())
-		}
+		PrintRR(rr)
 	}
 }
 

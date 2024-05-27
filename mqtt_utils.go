@@ -41,7 +41,7 @@ const (
 
 func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, error) {
 	if pubsub == 0 {
-		return nil, fmt.Errorf("Either (or both) pub or sub support must be requested for MQTT Engine")
+		return nil, fmt.Errorf("either (or both) pub or sub support must be requested for MQTT Engine")
 	}
 
 	if clientid == "" {
@@ -178,7 +178,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 	c := paho.NewClient(paho.ClientConfig{
 		// XXX: The router seems to only bee needed for subscribers
-		Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) { me.MsgChan <- m }),
+		Router: paho.NewStandardRouterWithDefault(func(m *paho.Publish) { me.MsgChan <- m }),
 		// AutoReconnect: true,
 		Conn: conn,
 	})
@@ -225,7 +225,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 		if me.CanSubscribe {
 			subs := []paho.SubscribeOptions{}
-			for topic, _ := range me.ValidatorKeys {
+			for topic := range me.ValidatorKeys {
 				subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
 			}
 			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
@@ -443,12 +443,9 @@ func (me *MqttEngine) SetupInterruptHandler() {
 	ic := make(chan os.Signal, 1)
 	signal.Notify(ic, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		for {
-			select {
-			case <-ic:
-				fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
-				me.StopEngine()
-			}
+		for range ic {
+			fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
+			me.StopEngine()
 		}
 	}()
 }
@@ -457,19 +454,16 @@ func (me *MqttEngine) SetupInterruptHandler() {
 func SetupTapirMqttSubPrinter(inbox chan MqttPkg) {
 	go func() {
 		var pkg MqttPkg
-		for {
-			select {
-			case pkg = <-inbox:
-				var out []string
-				fmt.Printf("Received TAPIR MQTT Message:\n")
-				for _, a := range pkg.Data.Added {
-					out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
-				}
-				for _, a := range pkg.Data.Removed {
-					out = append(out, fmt.Sprintf("DEL: %s", a.Name))
-				}
-				fmt.Println(columnize.SimpleFormat(out))
+		for pkg = range inbox {
+			var out []string
+			fmt.Printf("Received TAPIR MQTT Message:\n")
+			for _, a := range pkg.Data.Added {
+				out = append(out, fmt.Sprintf("ADD: %s|%032b", a.Name, a.TagMask))
 			}
+			for _, a := range pkg.Data.Removed {
+				out = append(out, fmt.Sprintf("DEL: %s", a.Name))
+			}
+			fmt.Println(columnize.SimpleFormat(out))
 		}
 	}()
 }

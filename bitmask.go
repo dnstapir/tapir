@@ -81,7 +81,7 @@ func StringsToTagMask(ss []string) (TagMask, error) {
 			res.SetTag(Frotz)
 		default:
 			log.Printf("Error: unknown tag: \"%s\"", s)
-			return res, fmt.Errorf("Unknown tapir tag: \"%s\"", s)
+			return res, fmt.Errorf("unknown tapir tag: \"%s\"", s)
 		}
 	}
 	return res, nil
@@ -115,7 +115,7 @@ func StringToAction(s string) (Action, error) {
 		return REDIRECT, nil
 	default:
 		log.Printf("Error: unknown RPZ action: \"%s\"", s)
-		return 0, fmt.Errorf("Unknown tapir RPZ action: \"%s\"", s)
+		return 0, fmt.Errorf("unknown tapir RPZ action: \"%s\"", s)
 	}
 }
 

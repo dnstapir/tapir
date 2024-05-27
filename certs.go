@@ -3,7 +3,7 @@ package tapir
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 )
 
 type Config struct {
@@ -17,7 +17,7 @@ type SimpleConfig struct {
 }
 
 func loadCertPool(filename string) (*x509.CertPool, error) {
-	caCert, err := ioutil.ReadFile(filename)
+	caCert, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +43,6 @@ func NewServerConfig(caFile string, clientAuth tls.ClientAuthType) (*tls.Config,
 		NextProtos: []string{"h2", "http/1.1"},
 	}
 
-	config.BuildNameToCertificate()
-
 	return config, nil
 }
 
@@ -64,7 +62,6 @@ func NewClientConfig(caFile, keyFile, certFile string) (*tls.Config, error) {
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 	}
-	config.BuildNameToCertificate()
 
 	return config, nil
 }

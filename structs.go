@@ -124,7 +124,6 @@ type Api struct {
 	Name       string
 	Client     *http.Client
 	BaseUrl    string
-	apiKey     string
 	Authmethod string
 	Verbose    bool
 	Debug      bool

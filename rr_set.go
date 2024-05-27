@@ -6,10 +6,8 @@ package tapir
 import (
 	"bytes"
 	"fmt"
-	"sort"
 
 	"github.com/miekg/dns"
-	"github.com/twotwotwo/sorts"
 )
 
 // RRArray represents an array of rrs
@@ -84,8 +82,4 @@ func (array RRArray) String() string {
 		return "<empty_setlist>"
 	}
 	return fmt.Sprintf("%s#%s#%s", array[0].Header().Name, dns.ClassToString[array[0].Header().Class], dns.TypeToString[array[0].Header().Rrtype])
-}
-
-func quickSort(sortable sort.Interface) {
-	sorts.Quicksort(sortable)
 }
