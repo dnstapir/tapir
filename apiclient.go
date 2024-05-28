@@ -22,28 +22,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func printConnState(conn *tls.Conn) {
-	log.Print(">>>>>>>>>>>>>>>> TLS Connection State <<<<<<<<<<<<<<<<")
-	state := conn.ConnectionState()
-	log.Printf("Version: %x", state.Version)
-	log.Printf("HandshakeComplete: %t", state.HandshakeComplete)
-	log.Printf("DidResume: %t", state.DidResume)
-	log.Printf("CipherSuite: %x", state.CipherSuite)
-	log.Printf("NegotiatedProtocol: %s", state.NegotiatedProtocol)
-	log.Printf("NegotiatedProtocolIsMutual: %t", state.NegotiatedProtocolIsMutual)
-
-	log.Print("Certificate chain:")
-	for i, cert := range state.PeerCertificates {
-		subject := cert.Subject
-		issuer := cert.Issuer
-		log.Printf(" %d s:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", i, subject.Country, subject.Province, subject.Locality,
-			subject.Organization, subject.OrganizationalUnit, subject.CommonName)
-		log.Printf("   i:/C=%v/ST=%v/L=%v/O=%v/OU=%v/CN=%s", issuer.Country, issuer.Province, issuer.Locality,
-			issuer.Organization, issuer.OrganizationalUnit, issuer.CommonName)
-	}
-	log.Print(">>>>>>>>>>>>>>>> State End <<<<<<<<<<<<<<<<")
-}
-
 type ApiClient struct {
 	BaseUrl    string
 	AuthMethod string
@@ -71,7 +49,7 @@ func (api *ApiClient) Setup() error {
 	var protocol = "http"
 
 	if api.BaseUrl == "" {
-		return fmt.Errorf("BaseUrl not defined. Abort.")
+		return fmt.Errorf("baseUrl not defined. Abort")
 	}
 	if api.Debug {
 		log.Printf("api.Setup(): Using baseurl \"%s\"\n", api.BaseUrl)
@@ -87,7 +65,7 @@ func (api *ApiClient) Setup() error {
 
 	ip, port, err := net.SplitHostPort(api.BaseUrl)
 	if err != nil {
-		return fmt.Errorf("api.Setup(): Error from SplitHostPort: %s. Abort.", err)
+		return fmt.Errorf("api.Setup(): Error from SplitHostPort: %s. Abort", err)
 	}
 
 	if strings.Contains(port, "/") {
@@ -98,7 +76,7 @@ func (api *ApiClient) Setup() error {
 
 	addr := net.ParseIP(ip)
 	if addr == nil {
-		return fmt.Errorf("api.Setup(): Illegal address specification: %s. Abort.", ip)
+		return fmt.Errorf("api.Setup(): Illegal address specification: %s. Abort", ip)
 	}
 
 	api.BaseUrl = fmt.Sprintf("%s://%s:%s%s", protocol, addr.String(), port, path)
@@ -137,7 +115,7 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 	var protocol = "https"
 
 	if api.BaseUrl == "" {
-		return fmt.Errorf("BaseUrl not defined. Abort.")
+		return fmt.Errorf("baseUrl not defined. Abort")
 	}
 	if api.Debug {
 		log.Printf("api.SetupTLS: Using baseurl \"%s\"\n", api.BaseUrl)
@@ -152,7 +130,7 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 
 	ip, port, err := net.SplitHostPort(api.BaseUrl)
 	if err != nil {
-		return fmt.Errorf("api.SetupTLS: Error from SplitHostPort: %s. Abort.", err)
+		return fmt.Errorf("api.SetupTLS: Error from SplitHostPort: %s. Abort", err)
 	}
 
 	if strings.Contains(port, "/") {
@@ -163,7 +141,7 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 
 	addr := net.ParseIP(ip)
 	if addr == nil {
-		return fmt.Errorf("api.SetupTLS: Illegal address specification: %s. Abort.", ip)
+		return fmt.Errorf("api.SetupTLS: Illegal address specification: %s. Abort", ip)
 	}
 
 	api.BaseUrl = fmt.Sprintf("%s://%s:%s%s", protocol, addr.String(), port, path)
@@ -175,11 +153,11 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 
 	cacert := viper.GetString("certs.cacertfile")
 	if cacert == "" {
-		return fmt.Errorf("Cannot use TLS without a CA cert, see config key certs.cacertfile")
+		return fmt.Errorf("cannot use TLS without a CA cert, see config key certs.cacertfile")
 	}
 	_, err = os.ReadFile(cacert)
 	if err != nil {
-		return fmt.Errorf("Error reading CA file '%s': %v\n", cacert, err)
+		return fmt.Errorf("error reading CA file '%s': %v", cacert, err)
 	}
 	//	roots := x509.NewCertPool()
 	//	ok := roots.AppendCertsFromPEM(caCertPEM)
@@ -231,7 +209,7 @@ func (api *ApiClient) AddAuthHeader(req *http.Request) {
 		req.Header.Add("X-API-Key", api.ApiKey)
 	} else if api.AuthMethod == "Authorization" {
 		req.Header.Add("Authorization", fmt.Sprintf("token %s", api.ApiKey))
-	} else if api.AuthMethod == "none" {
+		// } else if api.AuthMethod == "none" {
 		// do not add any authentication header at all
 	}
 }
@@ -253,12 +231,15 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 	}
 
 	req, err := http.NewRequest(method, api.BaseUrl+endpoint, bytebuf)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create new HTTP request: %w", err)
+	}
 	req.Header.Add("Content-Type", "application/json")
 	if api.AuthMethod == "X-API-Key" {
 		req.Header.Add("X-API-Key", api.ApiKey)
 	} else if api.AuthMethod == "Authorization" {
 		req.Header.Add("Authorization", fmt.Sprintf("token %s", api.ApiKey))
-	} else if api.AuthMethod == "none" {
+		// } else if api.AuthMethod == "none" {
 		// do not add any authentication header at all
 	}
 	resp, err := api.HttpClient.Do(req)
@@ -270,7 +251,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 
 		var msg string
 		if strings.Contains(err.Error(), "connection refused") {
-			msg = fmt.Sprintf("Connection refused. Server process probably not running.")
+			msg = "Connection refused. Server process probably not running."
 		} else {
 			msg = fmt.Sprintf("Error from API request %s: %v", method, err)
 		}
