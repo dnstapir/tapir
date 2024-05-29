@@ -178,7 +178,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 	c := paho.NewClient(paho.ClientConfig{
 		// XXX: The router seems to only bee needed for subscribers
-		Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) { me.MsgChan <- m }),
+		Router: paho.NewStandardRouterWithDefault((func(m *paho.Publish) { me.MsgChan <- m })),
 		// AutoReconnect: true,
 		Conn: conn,
 	})
