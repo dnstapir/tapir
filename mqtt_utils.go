@@ -76,7 +76,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	// Setup CA cert for validating the MQTT connection
 	caCert, err := os.ReadFile(cacertFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read CA certificate in file %s: %w", cacertFile, err)
 	}
 	caCertPool := x509.NewCertPool()
 	ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
@@ -87,7 +87,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	// Setup client cert/key for mTLS authentication
 	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load client certificate in file %s: %w", clientCertFile, err)
 	}
 
 	me := MqttEngine{
@@ -148,7 +148,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		}
 		me.PubKey, err = x509.ParsePKIXPublicKey(pemBlock.Bytes)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse public key in file %s: %w", signingPubFile, err)
 		}
 		// log.Printf("PubKey is of type %t", me.PubKey)
 		me.CanSubscribe = true
@@ -161,7 +161,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		MinVersion:   tls.VersionTLS13,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial MQTT server %s: %w", me.Server, err)
 	}
 
 	var tag string
@@ -388,7 +388,9 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 }
 
 func (me *MqttEngine) AddTopic(topic string, validatorkey *ecdsa.PublicKey) error {
+	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic != "" && validatorkey != nil {
+		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
 		me.ValidatorKeys[topic] = validatorkey
 		log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
 		return nil
