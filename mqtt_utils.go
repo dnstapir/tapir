@@ -56,11 +56,6 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		return nil, fmt.Errorf("MQTT server not specified in config")
 	}
 
-	topic := viper.GetString("mqtt.topic")
-	if topic == "" {
-		return nil, fmt.Errorf("MQTT topic not specified in config")
-	}
-
 	clientCertFile := viper.GetString("mqtt.clientcert")
 	if clientCertFile == "" {
 		return nil, fmt.Errorf("MQTT client cert file not specified in config")
@@ -95,7 +90,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	}
 
 	me := MqttEngine{
-		Topic:         topic,
+		Topic:         viper.GetString("mqtt.topic"),
 		Server:        server,
 		ClientID:      clientid,
 		ClientCert:    clientCert,
@@ -170,7 +165,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	me.PublishChan = make(chan MqttPkg, 10)   // Here clients send us messages to pub
 	me.SubscribeChan = make(chan MqttPkg, 10) // Here we send clients messages that arrived via sub
 
-	StartEngine := func(resp chan MqttEngineResponse) {
+	StartEngine := func(resp chan MqttEngineResponse) error {
 		var ctx context.Context
 		// me.Cancel is used to tell the paho connection manager to stop
 		ctx, me.Cancel = context.WithCancel(context.Background())
@@ -261,7 +256,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				Error:    true,
 				ErrorMsg: fmt.Sprintf("failed to create MQTT connection %s: %v", me.Server, err),
 			}
-			return
+			return err
 		}
 
 		me.ConnectionManager = cm
@@ -271,12 +266,15 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				Error:    true,
 				ErrorMsg: fmt.Sprintf("failed to wait for MQTT connection %s: %v", me.Server, err),
 			}
-			return
+			return err
 		}
 
 		lg.Printf("Connected to %s\n", me.Server)
 
 		if me.CanPublish {
+			if me.Topic == "" {
+				return fmt.Errorf("MQTT topic for PUB not specified in config")
+			}
 			lg.Printf("Publishing on topic %s", me.Topic)
 		}
 
@@ -284,6 +282,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 			Error:  false,
 			Status: "all ok",
 		}
+		return nil
 	}
 
 	StopEngine := func(resp chan MqttEngineResponse) {
@@ -375,6 +374,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					} else {
 						lg.Printf("MQTT Engine: verified message: %s", string(payload))
 						r := bytes.NewReader(payload)
+						pkg.Topic = inbox.Packet.Topic
 						err = json.NewDecoder(r).Decode(&pkg.Data)
 						if err != nil {
 							pkg.Error = true

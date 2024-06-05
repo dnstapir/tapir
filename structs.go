@@ -183,21 +183,35 @@ type MqttPkg struct {
 	Error     bool   // only used for sub.
 	ErrorMsg  string // only used for sub.
 	Msg       string
+	Topic     string // topic on which this message arrived
 	Data      TapirMsg
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName   string // must match a defined source
-	Creator   string // "spark"	|| "tapir-cli"
-	MsgType   string // "intel-update", "reset", "global-config"...
-	ListType  string // "{white|black|grey}list"
-	Added     []Domain
-	Removed   []Domain
-	Msg       string
-	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
-	TimeStr   string    // time string encoded in the payload by the sender, not touched by MQTTs
+	SrcName      string // must match a defined source
+	Creator      string // "spark"	|| "tapir-cli"
+	MsgType      string // "intel-update", "reset", "global-config"...
+	ListType     string // "{white|black|grey}list"
+	Added        []Domain
+	Removed      []Domain
+	Msg          string
+	GlobalConfig GlobalConfig
+	TimeStamp    time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr      string    // time string encoded in the payload by the sender, not touched by MQTTs
+}
+
+// Things we need to have in the global config include:
+// - dns-tapir bootstrap server details
+// - number of RRs to send in a dns.Envelope{}
+type GlobalConfig struct {
+	TapirConfigVersion    string
+	TapirBuild            string
+	EnvelopeSize          int
+	TapirBootstrapServers []string
+	TapirBootstrapUrl     string
+	TapirBootstrapApiKey  string
 }
 
 type Domain struct {
