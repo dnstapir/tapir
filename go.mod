@@ -3,14 +3,12 @@ module github.com/dnstapir/tapir-em/tapir
 go 1.21.0
 
 require (
-	github.com/eclipse/paho.golang v0.20.0
+	github.com/eclipse/paho.golang v0.21.0
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/miekg/dns v1.1.57
 	github.com/ryanuber/columnize v2.1.2+incompatible
 	github.com/smhanov/dawg v0.0.0-20220118194912-66057bdbf2e3
-	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/viper v1.18.1
-	github.com/twotwotwo/sorts v0.0.0-20160814051341-bf5c1f2b8553
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -18,6 +16,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect

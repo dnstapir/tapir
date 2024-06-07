@@ -4,6 +4,7 @@
 package tapir
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/miekg/dns"
 	"github.com/smhanov/dawg"
@@ -208,25 +210,26 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-	Topic         string
-	ClientID      string
-	Server        string
-	QoS           int
-	PrivKey       *ecdsa.PrivateKey
-	PubKey        any
-	Client        *paho.Client
-	ClientCert    tls.Certificate
-	CaCertPool    *x509.CertPool
-	MsgChan       chan *paho.Publish
-	CmdChan       chan MqttEngineCmd
-	PublishChan   chan MqttPkg
-	SubscribeChan chan MqttPkg
-	ValidatorKeys map[string]*ecdsa.PublicKey
-	MsgCounter    map[string]uint32
-	MsgTimeStamp  map[string]time.Time
-	CanPublish    bool
-	CanSubscribe  bool
-	Logger        *log.Logger
+	Topic             string
+	ClientID          string
+	Server            string
+	QoS               int
+	PrivKey           *ecdsa.PrivateKey
+	PubKey            any
+	ConnectionManager *autopaho.ConnectionManager
+	ClientCert        tls.Certificate
+	CaCertPool        *x509.CertPool
+	MsgChan           chan paho.PublishReceived
+	CmdChan           chan MqttEngineCmd
+	PublishChan       chan MqttPkg
+	SubscribeChan     chan MqttPkg
+	ValidatorKeys     map[string]*ecdsa.PublicKey
+	MsgCounter        map[string]uint32
+	MsgTimeStamp      map[string]time.Time
+	CanPublish        bool
+	CanSubscribe      bool
+	Logger            *log.Logger
+	Cancel            context.CancelFunc
 }
 
 type MqttEngineCmd struct {

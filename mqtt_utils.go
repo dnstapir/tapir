@@ -14,12 +14,15 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
@@ -74,6 +77,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	}
 
 	// Setup CA cert for validating the MQTT connection
+	cacertFile = filepath.Clean(cacertFile)
 	caCert, err := os.ReadFile(cacertFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CA certificate in file %s: %w", cacertFile, err)
@@ -108,6 +112,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	} else if signingKeyFile == "" {
 		lg.Printf("MQTT signing key file not specified in config, publish not possible")
 	} else {
+		signingKeyFile = filepath.Clean(signingKeyFile)
 		signingKey, err := os.ReadFile(signingKeyFile)
 		if err != nil {
 			return nil, err
@@ -136,6 +141,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	} else if signingPubFile == "" {
 		lg.Printf("MQTT validator pub file not specified in config, subscribe not possible")
 	} else {
+		signingPubFile = filepath.Clean(signingPubFile)
 		signingPub, err := os.ReadFile(signingPubFile)
 		if err != nil {
 			return nil, err
@@ -154,109 +160,126 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		me.CanSubscribe = true
 	}
 
-	// Setup connection to the MQTT bus
-	conn, err := tls.Dial("tcp", me.Server, &tls.Config{
-		RootCAs:      me.CaCertPool,
-		Certificates: []tls.Certificate{me.ClientCert},
-		MinVersion:   tls.VersionTLS13,
-	})
+	serverURL, err := url.Parse(me.Server)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial MQTT server %s: %w", me.Server, err)
+		return nil, fmt.Errorf("failed to parse MQTT server URL %s: %w", me.Server, err)
 	}
 
-	var tag string
-	if me.CanPublish {
-		tag += "PUB"
-	}
-	if me.CanSubscribe {
-		tag += "SUB"
-	}
-
-	//	logger := log.New(os.Stdout, fmt.Sprintf("%s (%s): ", tag, me.ClientID), log.LstdFlags)
-
-	me.MsgChan = make(chan *paho.Publish)
-
-	c := paho.NewClient(paho.ClientConfig{
-		// XXX: The router seems to only bee needed for subscribers
-		Router: paho.NewStandardRouterWithDefault((func(m *paho.Publish) { me.MsgChan <- m })),
-		// AutoReconnect: true,
-		Conn: conn,
-	})
-
-	if GlobalCF.Debug {
-		c.SetDebugLogger(lg)
-	}
-	c.SetErrorLogger(lg)
-
-	me.Client = c
-
+	me.MsgChan = make(chan paho.PublishReceived)
 	me.CmdChan = make(chan MqttEngineCmd, 1)
 	me.PublishChan = make(chan MqttPkg, 10)   // Here clients send us messages to pub
 	me.SubscribeChan = make(chan MqttPkg, 10) // Here we send clients messages that arrived via sub
 
 	StartEngine := func(resp chan MqttEngineResponse) {
-		cp := &paho.Connect{
-			KeepAlive:  30,
-			ClientID:   me.ClientID,
-			CleanStart: true,
+		var ctx context.Context
+		// me.Cancel is used to tell the paho connection manager to stop
+		ctx, me.Cancel = context.WithCancel(context.Background())
+
+		var subs []paho.SubscribeOptions
+		if me.CanSubscribe {
+			for topic := range me.ValidatorKeys {
+				subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
+			}
+
+			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
+			for _, v := range subs {
+				lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
+			}
 		}
 
-		ca, err := me.Client.Connect(context.Background(), cp)
+		apcConfig := autopaho.ClientConfig{
+			ServerUrls: []*url.URL{serverURL},
+			TlsCfg: &tls.Config{
+				RootCAs:      me.CaCertPool,
+				Certificates: []tls.Certificate{me.ClientCert},
+				MinVersion:   tls.VersionTLS13,
+			},
+			KeepAlive:                     20,
+			CleanStartOnInitialConnection: false,
+			SessionExpiryInterval:         60,
+			OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
+				lg.Println("MQTT Engine: MQTT connection up")
+				if subs != nil {
+					sa, err := cm.Subscribe(context.Background(), &paho.Subscribe{
+						Subscriptions: subs,
+					})
+					if err != nil {
+						resp <- MqttEngineResponse{
+							Error:    true,
+							ErrorMsg: fmt.Sprintf("Error from cm.Subscribe: %v", err),
+						}
+
+						return
+					}
+
+					lg.Println(string(sa.Reasons))
+					if sa.Reasons[0] != byte(me.QoS) {
+						topics := []string{}
+						for _, sub := range subs {
+							topics = append(topics, sub.Topic)
+						}
+						resp <- MqttEngineResponse{
+							Error: true,
+							ErrorMsg: fmt.Sprintf("Did not get expected QoS level when subscribing to topics %s reasons: %d",
+								topics, sa.Reasons[0]),
+						}
+						return
+					}
+					lg.Println("mqtt subscription successful")
+				}
+			},
+			Errors:         lg,
+			PahoErrors:     lg,
+			OnConnectError: func(err error) { lg.Printf("error whilst attempting connection: %s\n", err) },
+			ClientConfig: paho.ClientConfig{
+				ClientID: me.ClientID,
+				OnPublishReceived: []func(paho.PublishReceived) (bool, error){
+					func(pr paho.PublishReceived) (bool, error) {
+						lg.Printf("received message on topic %s; body: %s (retain: %t)\n", pr.Packet.Topic, pr.Packet.Payload, pr.Packet.Retain)
+						me.MsgChan <- pr
+						return true, nil
+					}},
+				OnClientError: func(err error) { lg.Printf("client error: %s\n", err) },
+				OnServerDisconnect: func(d *paho.Disconnect) {
+					if d.Properties != nil {
+						lg.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+					} else {
+						lg.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+					}
+				},
+			},
+		}
+
+		if GlobalCF.Debug {
+			apcConfig.Debug = lg
+			apcConfig.PahoDebug = lg
+		}
+
+		cm, err := autopaho.NewConnection(ctx, apcConfig)
 		if err != nil {
 			resp <- MqttEngineResponse{
 				Error:    true,
-				ErrorMsg: fmt.Sprintf("Error from mp.Client.Connect: %v", err),
+				ErrorMsg: fmt.Sprintf("failed to create MQTT connection %s: %v", me.Server, err),
 			}
 			return
 		}
-		if ca.ReasonCode != 0 {
+
+		me.ConnectionManager = cm
+
+		if err = cm.AwaitConnection(ctx); err != nil {
 			resp <- MqttEngineResponse{
-				Error: true,
-				ErrorMsg: fmt.Sprintf("Failed to connect to %s: %d - %s", me.Server,
-					ca.ReasonCode, ca.Properties.ReasonString),
+				Error:    true,
+				ErrorMsg: fmt.Sprintf("failed to wait for MQTT connection %s: %v", me.Server, err),
 			}
 			return
 		}
+
 		lg.Printf("Connected to %s\n", me.Server)
 
 		if me.CanPublish {
 			lg.Printf("Publishing on topic %s", me.Topic)
 		}
 
-		if me.CanSubscribe {
-			subs := []paho.SubscribeOptions{}
-			for topic := range me.ValidatorKeys {
-				subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
-			}
-			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
-			for _, v := range subs {
-				lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
-			}
-
-			sa, err := me.Client.Subscribe(context.Background(), &paho.Subscribe{
-				//				Subscriptions: []paho.SubscribeOptions{
-				//					{Topic: me.Topic, QoS: byte(me.QoS)},
-				//				},
-				Subscriptions: subs,
-			})
-			if err != nil {
-				resp <- MqttEngineResponse{
-					Error:    true,
-					ErrorMsg: fmt.Sprintf("Error from mp.Client.Subscribe: %v", err),
-				}
-				return
-			}
-			fmt.Println(string(sa.Reasons))
-			if sa.Reasons[0] != byte(me.QoS) {
-				resp <- MqttEngineResponse{
-					Error: true,
-					ErrorMsg: fmt.Sprintf("Failed to subscribe to topic: %s reasons: %d",
-						me.Topic, sa.Reasons[0]),
-				}
-				return
-			}
-			lg.Printf("Subscribed to %s", me.Topic)
-		}
 		resp <- MqttEngineResponse{
 			Error:  false,
 			Status: "all ok",
@@ -264,18 +287,14 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	}
 
 	StopEngine := func(resp chan MqttEngineResponse) {
-		if me.Client != nil {
-			d := &paho.Disconnect{ReasonCode: 0}
-			err := me.Client.Disconnect(d)
-			if err != nil {
-				resp <- MqttEngineResponse{
-					Error:    true,
-					ErrorMsg: err.Error(),
-				}
-			} else {
-				resp <- MqttEngineResponse{
-					Status: "connection to MQTT broker closed",
-				}
+		if me.ConnectionManager != nil {
+			me.Cancel()
+
+			lg.Printf("MQTT StopEngine: waiting for connection manager to stop")
+			<-me.ConnectionManager.Done()
+
+			resp <- MqttEngineResponse{
+				Status: "connection to MQTT broker closed",
 			}
 			lg.Printf("MQTT StopEngine: MQTT client disconnected from broker\n")
 		} else {
@@ -324,7 +343,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					lg.Printf("MQTT Engine: failed to create JWS message: %s", err)
 				}
 
-				if _, err = me.Client.Publish(context.Background(), &paho.Publish{
+				if _, err = me.ConnectionManager.Publish(context.Background(), &paho.Publish{
 					Topic:   me.Topic,
 					Payload: sMsg,
 				}); err != nil {
@@ -337,17 +356,17 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 			case inbox := <-me.MsgChan:
 				if GlobalCF.Debug {
-					lg.Println("MQTT Engine: received message:", string(inbox.Payload))
+					lg.Println("MQTT Engine: received message:", string(inbox.Packet.Payload))
 				}
 				pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
-				log.Printf("MQTT Engine: topic: %v", inbox.Topic)
-				me.MsgCounter[inbox.Topic]++
-				me.MsgTimeStamp[inbox.Topic] = time.Now()
-				validatorkey := me.ValidatorKeys[inbox.Topic]
+				log.Printf("MQTT Engine: topic: %v", inbox.Packet.Topic)
+				me.MsgCounter[inbox.Packet.Topic]++
+				me.MsgTimeStamp[inbox.Packet.Topic] = time.Now()
+				validatorkey := me.ValidatorKeys[inbox.Packet.Topic]
 				if validatorkey == nil {
-					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Topic)
+					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Packet.Topic)
 				} else {
-					payload, err := jws.Verify(inbox.Payload, jws.WithKey(jwa.ES256, validatorkey))
+					payload, err := jws.Verify(inbox.Packet.Payload, jws.WithKey(jwa.ES256, validatorkey))
 					if err != nil {
 						pkg.Error = true
 						pkg.ErrorMsg = fmt.Sprintf("MQTT Engine: failed to verify message: %v", err)
@@ -448,7 +467,10 @@ func (me *MqttEngine) SetupInterruptHandler() {
 	go func() {
 		for range ic {
 			fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
-			me.StopEngine()
+			_, err := me.StopEngine()
+			if err != nil {
+				fmt.Printf("StopEngine failed: %v", err)
+			}
 		}
 	}()
 }
@@ -490,6 +512,7 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 	if filename == "" {
 		log.Printf("MQTT validator validator key for topic %s file not specified in config, subscribe not possible", topic)
 	} else {
+		filename = filepath.Clean(filename)
 		signingPub, err := os.ReadFile(filename)
 		if err != nil {
 			log.Printf("MQTT validator validator key for topic %s: failed to read file %s: %v", topic, filename, err)
