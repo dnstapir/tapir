@@ -96,8 +96,8 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		ClientCert:    clientCert,
 		CaCertPool:    caCertPool,
 		ValidatorKeys: make(map[string]*ecdsa.PublicKey),
-		MsgCounter:    make(map[string]uint32),
-		MsgTimeStamp:  make(map[string]time.Time),
+		MsgCounters:   make(map[string]uint32),
+		MsgTimeStamps: make(map[string]time.Time),
 		Logger:        lg,
 	}
 
@@ -130,28 +130,9 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		fmt.Printf("MQTT subscribe quality-of-service not specified in config, using 0")
 	}
 
-	signingPubFile := viper.GetString("mqtt.validatorkey")
 	if pubsub&TapirSub == 0 {
 		lg.Printf("MQTT sub support not requested, only pub possible")
-	} else if signingPubFile == "" {
-		lg.Printf("MQTT validator pub file not specified in config, subscribe not possible")
 	} else {
-		signingPubFile = filepath.Clean(signingPubFile)
-		signingPub, err := os.ReadFile(signingPubFile)
-		if err != nil {
-			return nil, err
-		}
-
-		// Setup key used for creating the JWS
-		pemBlock, _ := pem.Decode(signingPub)
-		if pemBlock == nil || pemBlock.Type != "PUBLIC KEY" {
-			return nil, fmt.Errorf("failed to decode PEM block containing public key")
-		}
-		me.PubKey, err = x509.ParsePKIXPublicKey(pemBlock.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse public key in file %s: %w", signingPubFile, err)
-		}
-		// log.Printf("PubKey is of type %t", me.PubKey)
 		me.CanSubscribe = true
 	}
 
@@ -359,8 +340,8 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				}
 				pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
 				log.Printf("MQTT Engine: topic: %v", inbox.Packet.Topic)
-				me.MsgCounter[inbox.Packet.Topic]++
-				me.MsgTimeStamp[inbox.Packet.Topic] = time.Now()
+				me.MsgCounters[inbox.Packet.Topic]++
+				me.MsgTimeStamps[inbox.Packet.Topic] = time.Now()
 				validatorkey := me.ValidatorKeys[inbox.Packet.Topic]
 				if validatorkey == nil {
 					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Packet.Topic)
@@ -455,8 +436,8 @@ func (me *MqttEngine) RestartEngine() (chan MqttEngineCmd, error) {
 
 func (me *MqttEngine) Stats() MqttStats {
 	return MqttStats{
-		MsgCounter:   me.MsgCounter,
-		MsgTimeStamp: me.MsgTimeStamp,
+		MsgCounters:   me.MsgCounters,
+		MsgTimeStamps: me.MsgTimeStamps,
 	}
 }
 
@@ -510,12 +491,12 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 	log.Printf("FetchMqttValidatorKey: topic %s, filename %s", topic, filename)
 	var PubKey *ecdsa.PublicKey
 	if filename == "" {
-		log.Printf("MQTT validator validator key for topic %s file not specified in config, subscribe not possible", topic)
+		log.Printf("MQTT validator public key for topic %s file not specified in config, subscribe not possible", topic)
 	} else {
 		filename = filepath.Clean(filename)
 		signingPub, err := os.ReadFile(filename)
 		if err != nil {
-			log.Printf("MQTT validator validator key for topic %s: failed to read file %s: %v", topic, filename, err)
+			log.Printf("MQTT validator public key for topic %s: failed to read file %s: %v", topic, filename, err)
 			return nil, err
 		}
 
@@ -526,7 +507,7 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 		}
 		tmp, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
 		if err != nil {
-			log.Printf("MQTT validator validator key for topic %s: failed to parse key: %v", topic, err)
+			log.Printf("MQTT validator public key for topic %s: failed to parse key: %v", topic, err)
 			return nil, err
 		}
 		PubKey = tmp.(*ecdsa.PublicKey)

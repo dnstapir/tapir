@@ -105,11 +105,13 @@ type BootstrapPost struct {
 }
 
 type BootstrapResponse struct {
-	Time     time.Time
-	Status   string
-	Msg      string
-	Error    bool
-	ErrorMsg string
+	Time          time.Time
+	Status        string
+	Msg           string
+	MsgCounters   map[string]uint32    // map[topic]counter
+	MsgTimeStamps map[string]time.Time // map[topic]timestamp
+	Error         bool
+	ErrorMsg      string
 }
 
 type DebugPost struct {
@@ -141,8 +143,8 @@ type DebugResponse struct {
 }
 
 type MqttStats struct {
-	MsgCounter   map[string]uint32
-	MsgTimeStamp map[string]time.Time
+	MsgCounters   map[string]uint32
+	MsgTimeStamps map[string]time.Time
 }
 
 type Api struct {
@@ -238,8 +240,8 @@ type MqttEngine struct {
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
 	ValidatorKeys     map[string]*ecdsa.PublicKey
-	MsgCounter        map[string]uint32
-	MsgTimeStamp      map[string]time.Time
+	MsgCounters       map[string]uint32
+	MsgTimeStamps     map[string]time.Time
 	CanPublish        bool
 	CanSubscribe      bool
 	Logger            *log.Logger
