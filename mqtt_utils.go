@@ -51,22 +51,27 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		return nil, fmt.Errorf("MQTT client id not specified")
 	}
 
-	server := viper.GetString("mqtt.server")
+	server := viper.GetString("tapir.mqtt.server")
 	if server == "" {
 		return nil, fmt.Errorf("MQTT server not specified in config")
 	}
 
-	clientCertFile := viper.GetString("mqtt.clientcert")
+	qos := viper.GetInt("tapir.mqtt.qos")
+	if qos == 0 {
+		fmt.Printf("MQTT subscribe quality-of-service not specified in config, using 0")
+	}
+
+	clientCertFile := viper.GetString("tapir.mqtt.clientcert")
 	if clientCertFile == "" {
 		return nil, fmt.Errorf("MQTT client cert file not specified in config")
 	}
 
-	clientKeyFile := viper.GetString("mqtt.clientkey")
+	clientKeyFile := viper.GetString("tapir.mqtt.clientkey")
 	if clientKeyFile == "" {
 		return nil, fmt.Errorf("MQTT client key file not specified in config")
 	}
 
-	cacertFile := viper.GetString("mqtt.cacert")
+	cacertFile := viper.GetString("tapir.mqtt.cacert")
 	if cacertFile == "" {
 		return nil, fmt.Errorf("MQTT CA cert file not specified in config")
 	}
@@ -90,44 +95,41 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	}
 
 	me := MqttEngine{
-		Topic:         viper.GetString("mqtt.topic"),
+		// Topic:         viper.GetString("mqtt.topic"),
 		Server:        server,
 		ClientID:      clientid,
 		ClientCert:    clientCert,
 		CaCertPool:    caCertPool,
+		SigningKeys:   make(map[string]*ecdsa.PrivateKey),
 		ValidatorKeys: make(map[string]*ecdsa.PublicKey),
 		MsgCounters:   make(map[string]uint32),
 		MsgTimeStamps: make(map[string]time.Time),
 		Logger:        lg,
+		QoS:           qos,
 	}
 
 	signingKeyFile := viper.GetString("mqtt.signingkey")
 	if pubsub&TapirPub == 0 {
 		lg.Printf("MQTT pub support not requested, only sub possible")
 	} else if signingKeyFile == "" {
-		lg.Printf("MQTT signing key file not specified in config, publish not possible")
-	} else {
-		signingKeyFile = filepath.Clean(signingKeyFile)
-		signingKey, err := os.ReadFile(signingKeyFile)
-		if err != nil {
-			return nil, err
-		}
+		//		lg.Printf("MQTT signing key file not specified in config, publish not possible")
+		//	} else {
+		// signingKeyFile = filepath.Clean(signingKeyFile)
+		// signingKey, err := os.ReadFile(signingKeyFile)
+		// if err != nil {
+		// 	return nil, err
+		// }
 
 		// Setup key used for creating the JWS
-		pemBlock, _ := pem.Decode(signingKey)
-		if pemBlock == nil || pemBlock.Type != "EC PRIVATE KEY" {
-			return nil, fmt.Errorf("failed to decode PEM block containing private key")
-		}
-		me.PrivKey, err = x509.ParseECPrivateKey(pemBlock.Bytes)
-		if err != nil {
-			return nil, err
-		}
+		// pemBlock, _ := pem.Decode(signingKey)
+		// if pemBlock == nil || pemBlock.Type != "EC PRIVATE KEY" {
+		// 	return nil, fmt.Errorf("failed to decode PEM block containing private key")
+		// }
+		// me.PrivKey, err = x509.ParseECPrivateKey(pemBlock.Bytes)
+		// if err != nil {
+		// 	return nil, err
+		// }
 		me.CanPublish = true
-	}
-
-	me.QoS = viper.GetInt("mqtt.qos")
-	if me.QoS == 0 {
-		fmt.Printf("MQTT subscribe quality-of-service not specified in config, using 0")
 	}
 
 	if pubsub&TapirSub == 0 {
@@ -252,12 +254,13 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 		lg.Printf("Connected to %s\n", me.Server)
 
-		if me.CanPublish {
-			if me.Topic == "" {
-				return fmt.Errorf("MQTT topic for PUB not specified in config")
-			}
-			lg.Printf("Publishing on topic %s", me.Topic)
-		}
+		// XXX: topic is no longer global, but per message
+		//		if me.CanPublish {
+		//			if me.Topic == "" {
+		//				return fmt.Errorf("MQTT topic for PUB not specified in config")
+		//			}
+		//			lg.Printf("Publishing on topic %s", me.Topic)
+		//		}
 
 		resp <- MqttEngineResponse{
 			Error:  false,
@@ -318,20 +321,26 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					}
 				}
 
-				sMsg, err := jws.Sign(buf.Bytes(), jws.WithJSON(), jws.WithKey(jwa.ES256, me.PrivKey))
-				if err != nil {
-					lg.Printf("MQTT Engine: failed to create JWS message: %s", err)
-				}
+				signingkey := me.SigningKeys[outbox.Topic]
+				if signingkey == nil {
+					lg.Printf("MQTT Engine: Danger Will Robinson: signing key for MQTT topic %s not found. Dropping message.", outbox.Topic)
+				} else {
+					sMsg, err := jws.Sign(buf.Bytes(), jws.WithJSON(), jws.WithKey(jwa.ES256, signingkey))
+					if err != nil {
+						lg.Printf("MQTT Engine: failed to create JWS message: %s", err)
+					}
 
-				if _, err = me.ConnectionManager.Publish(context.Background(), &paho.Publish{
-					Topic:   me.Topic,
-					Payload: sMsg,
-				}); err != nil {
-					lg.Printf("MQTT Engine: error sending message: %v", err)
-					continue
-				}
-				if GlobalCF.Debug {
-					lg.Printf("sent signed JWS: %s", string(sMsg))
+					if _, err = me.ConnectionManager.Publish(context.Background(), &paho.Publish{
+						Topic:   outbox.Topic,
+						Payload: sMsg,
+						Retain:  outbox.Retain,
+					}); err != nil {
+						lg.Printf("MQTT Engine: error sending message: %v", err)
+						continue
+					}
+					if GlobalCF.Debug {
+						lg.Printf("sent signed JWS: %s", string(sMsg))
+					}
 				}
 
 			case inbox := <-me.MsgChan:
@@ -387,19 +396,30 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	return &me, nil
 }
 
-func (me *MqttEngine) AddTopic(topic string, validatorkey *ecdsa.PublicKey) error {
+func (me *MqttEngine) AddTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey) error {
 	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
-	if topic != "" && validatorkey != nil {
+	if topic == "" {
+		return fmt.Errorf("AddTopic: topic not specified")
+	}
+	if signingkey == nil && validatorkey == nil {
+		return fmt.Errorf("AddTopic: no signing or validator key specified")
+	}
+
+	if signingkey != nil {
+		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
+		me.SigningKeys[topic] = signingkey
+		log.Printf("MQTT Engine: added topic %s signingkey. Engine now has %d topics", topic, len(me.SigningKeys))
+	}
+	if validatorkey != nil {
 		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
 		me.ValidatorKeys[topic] = validatorkey
-		log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
-		return nil
+		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.ValidatorKeys))
 	}
-	return fmt.Errorf("invalid topic '%s' or validator key '%v'", topic, validatorkey)
+	return nil
 }
 
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkg, chan MqttPkg, error) {
-	if len(me.ValidatorKeys) == 0 {
+	if len(me.ValidatorKeys) == 0 && len(me.SigningKeys) == 0 {
 		return nil, nil, nil, fmt.Errorf("MQTT Engine: no topics added")
 	}
 	resp := make(chan MqttEngineResponse, 1)
@@ -513,4 +533,32 @@ func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
 		PubKey = tmp.(*ecdsa.PublicKey)
 	}
 	return PubKey, nil
+}
+
+func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
+	log.Printf("FetchMqttSigningKey: topic %s, filename %s", topic, filename)
+	var PrivKey *ecdsa.PrivateKey
+	if filename == "" {
+		log.Printf("MQTT signing private key for topic %s file not specified in config, publish not possible", topic)
+	} else {
+		filename = filepath.Clean(filename)
+		signingKey, err := os.ReadFile(filename)
+		if err != nil {
+			log.Printf("MQTT signing private key for topic %s: failed to read file %s: %v", topic, filename, err)
+			return nil, err
+		}
+
+		// Setup key used for creating the JWS
+		pemBlock, _ := pem.Decode(signingKey)
+		if pemBlock == nil || pemBlock.Type != "EC PRIVATE KEY" {
+			return nil, fmt.Errorf("failed to decode PEM block containing private key")
+		}
+		tmp, err := x509.ParseECPrivateKey(pemBlock.Bytes)
+		if err != nil {
+			log.Printf("MQTT signing private key for topic %s: failed to parse key: %v", topic, err)
+			return nil, err
+		}
+		PrivKey = tmp
+	}
+	return PrivKey, nil
 }

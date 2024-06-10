@@ -186,6 +186,7 @@ type MqttPkg struct {
 	ErrorMsg  string // only used for sub.
 	Msg       string
 	Topic     string // topic on which this message arrived
+	Retain    bool
 	Data      TapirMsg
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
@@ -239,6 +240,7 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
+	SigningKeys       map[string]*ecdsa.PrivateKey
 	ValidatorKeys     map[string]*ecdsa.PublicKey
 	MsgCounters       map[string]uint32
 	MsgTimeStamps     map[string]time.Time
