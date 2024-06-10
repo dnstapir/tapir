@@ -209,12 +209,15 @@ type TapirMsg struct {
 // - dns-tapir bootstrap server details
 // - number of RRs to send in a dns.Envelope{}
 type GlobalConfig struct {
-	TapirConfigVersion    string
-	TapirBuild            string
-	EnvelopeSize          int
-	TapirBootstrapServers []string
-	TapirBootstrapUrl     string
-	TapirBootstrapApiKey  string
+	TapirConfigVersion string
+	Rpz                struct {
+		EnvelopeSize int // Number of dns.RRs per zone transfer envelope
+	}
+	Bootstrap struct {
+		Servers []string
+		BaseUrl string
+		ApiKey  string
+	}
 }
 
 type Domain struct {
@@ -227,12 +230,12 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-	Topic             string
-	ClientID          string
-	Server            string
-	QoS               int
-	PrivKey           *ecdsa.PrivateKey
-	PubKey            any
+	Topic    string
+	ClientID string
+	Server   string
+	QoS      int
+	//	PrivKey           *ecdsa.PrivateKey
+	//	PubKey            any
 	ConnectionManager *autopaho.ConnectionManager
 	ClientCert        tls.Certificate
 	CaCertPool        *x509.CertPool
@@ -240,12 +243,12 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
-	SigningKeys       map[string]*ecdsa.PrivateKey
-	ValidatorKeys     map[string]*ecdsa.PublicKey
-	MsgCounters       map[string]uint32
-	MsgTimeStamps     map[string]time.Time
-	CanPublish        bool
-	CanSubscribe      bool
+	SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
+	ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
+	MsgCounters       map[string]uint32            // map[topic]counter
+	MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
+	CanPublish        bool                         // can publish to all topics
+	CanSubscribe      bool                         // can subscribe to all topics
 	Logger            *log.Logger
 	Cancel            context.CancelFunc
 }

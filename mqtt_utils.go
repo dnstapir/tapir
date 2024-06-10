@@ -108,27 +108,9 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		QoS:           qos,
 	}
 
-	signingKeyFile := viper.GetString("mqtt.signingkey")
 	if pubsub&TapirPub == 0 {
 		lg.Printf("MQTT pub support not requested, only sub possible")
-	} else if signingKeyFile == "" {
-		//		lg.Printf("MQTT signing key file not specified in config, publish not possible")
-		//	} else {
-		// signingKeyFile = filepath.Clean(signingKeyFile)
-		// signingKey, err := os.ReadFile(signingKeyFile)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// Setup key used for creating the JWS
-		// pemBlock, _ := pem.Decode(signingKey)
-		// if pemBlock == nil || pemBlock.Type != "EC PRIVATE KEY" {
-		// 	return nil, fmt.Errorf("failed to decode PEM block containing private key")
-		// }
-		// me.PrivKey, err = x509.ParseECPrivateKey(pemBlock.Bytes)
-		// if err != nil {
-		// 	return nil, err
-		// }
+	} else {
 		me.CanPublish = true
 	}
 
@@ -213,7 +195,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				ClientID: me.ClientID,
 				OnPublishReceived: []func(paho.PublishReceived) (bool, error){
 					func(pr paho.PublishReceived) (bool, error) {
-						lg.Printf("received message on topic %s; body: %s (retain: %t)\n", pr.Packet.Topic, pr.Packet.Payload, pr.Packet.Retain)
+						// lg.Printf("received message on topic %s; body: %s (retain: %t)\n", pr.Packet.Topic, pr.Packet.Payload, pr.Packet.Retain)
 						me.MsgChan <- pr
 						return true, nil
 					}},
@@ -253,14 +235,6 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 		}
 
 		lg.Printf("Connected to %s\n", me.Server)
-
-		// XXX: topic is no longer global, but per message
-		//		if me.CanPublish {
-		//			if me.Topic == "" {
-		//				return fmt.Errorf("MQTT topic for PUB not specified in config")
-		//			}
-		//			lg.Printf("Publishing on topic %s", me.Topic)
-		//		}
 
 		resp <- MqttEngineResponse{
 			Error:  false,
@@ -415,6 +389,36 @@ func (me *MqttEngine) AddTopic(topic string, signingkey *ecdsa.PrivateKey, valid
 		me.ValidatorKeys[topic] = validatorkey
 		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.ValidatorKeys))
 	}
+
+	// does the MqttEngine already have a connection manager (i.e. is it already running)
+	if me.ConnectionManager != nil {
+		if _, err := me.ConnectionManager.Subscribe(context.Background(), &paho.Subscribe{
+			Subscriptions: []paho.SubscribeOptions{
+				{
+					Topic: topic,
+					QoS:   byte(me.QoS),
+				},
+			},
+		}); err != nil {
+			return fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
+		}
+		log.Printf("MQTT Engine: added topic %s to running MQTT Engine. Engine now has %d topics", topic, len(me.ValidatorKeys))
+	}
+
+	return nil
+}
+
+func (me *MqttEngine) RemoveTopic(topic string) error {
+	if me.ConnectionManager != nil {
+		if _, err := me.ConnectionManager.Unsubscribe(context.Background(), &paho.Unsubscribe{
+			Topics: []string{topic},
+		}); err != nil {
+			return fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
+		}
+	}
+	delete(me.SigningKeys, topic)
+	delete(me.ValidatorKeys, topic)
+	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
 	return nil
 }
 
