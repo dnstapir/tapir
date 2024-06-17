@@ -195,7 +195,7 @@ type MqttPkg struct {
 type TapirMsg struct {
 	SrcName      string // must match a defined source
 	Creator      string // "spark"	|| "tapir-cli"
-	MsgType      string // "intel-update", "reset", "global-config"...
+	MsgType      string // "observation", "reset", "global-config"...
 	ListType     string // "{white|black|grey}list"
 	Added        []Domain
 	Removed      []Domain

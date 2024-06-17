@@ -58,7 +58,8 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 	qos := viper.GetInt("tapir.mqtt.qos")
 	if qos == 0 {
-		fmt.Printf("MQTT subscribe quality-of-service not specified in config, using 0")
+		fmt.Printf("MQTT subscribe quality-of-service not specified in config, using 2")
+		qos = 2
 	}
 
 	clientCertFile := viper.GetString("tapir.mqtt.clientcert")
