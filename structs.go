@@ -88,14 +88,15 @@ type CommandPost struct {
 }
 
 type CommandResponse struct {
-	Time     time.Time
-	Status   string
-	Zone     string
-	Serial   uint32
-	Data     []byte
-	Msg      string
-	Error    bool
-	ErrorMsg string
+	Time      time.Time
+	Status    string
+	Zone      string
+	Serial    uint32
+	Data      []byte
+	Msg       string
+	TemStatus TemStatus
+	Error     bool
+	ErrorMsg  string
 }
 
 type BootstrapPost struct {
@@ -105,13 +106,14 @@ type BootstrapPost struct {
 }
 
 type BootstrapResponse struct {
-	Time          time.Time
-	Status        string
-	Msg           string
-	MsgCounters   map[string]uint32    // map[topic]counter
-	MsgTimeStamps map[string]time.Time // map[topic]timestamp
-	Error         bool
-	ErrorMsg      string
+	Time   time.Time
+	Status string
+	Msg    string
+	// MsgCounters   map[string]uint32    // map[topic]counter
+	// MsgTimeStamps map[string]time.Time // map[topic]timestamp
+	TopicData map[string]TopicData
+	Error     bool
+	ErrorMsg  string
 }
 
 type DebugPost struct {
@@ -136,6 +138,7 @@ type DebugResponse struct {
 	GreylistedNames  map[string]*TapirName
 	RpzOutput        []RpzName
 	MqttStats        MqttStats
+	TopicData        map[string]TopicData
 	ReaperStats      map[string]map[time.Time][]string
 	Msg              string
 	Error            bool
@@ -188,6 +191,7 @@ type MqttPkg struct {
 	Topic     string // topic on which this message arrived
 	Retain    bool
 	Data      TapirMsg
+	TemStatus TemStatus
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
@@ -243,16 +247,26 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
-	SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
-	ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
-	MsgCounters       map[string]uint32            // map[topic]counter
-	MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
-	CanPublish        bool                         // can publish to all topics
-	CanSubscribe      bool                         // can subscribe to all topics
-	Logger            *log.Logger
-	Cancel            context.CancelFunc
+	// SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
+	// ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
+	TopicData map[string]TopicData // map[topic]TemStatus
+	// MsgCounters       map[string]uint32            // map[topic]counter
+	//MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
+	CanPublish   bool // can publish to all topics
+	CanSubscribe bool // can subscribe to all topics
+	Logger       *log.Logger
+	Cancel       context.CancelFunc
 }
 
+type TopicData struct {
+	SigningKey   *ecdsa.PrivateKey
+	ValidatorKey *ecdsa.PublicKey
+	SubscriberCh chan MqttPkg
+	PubMsgs      uint32
+	SubMsgs      uint32
+	LatestPub    time.Time
+	LatestSub    time.Time
+}
 type MqttEngineCmd struct {
 	Cmd  string
 	Resp chan MqttEngineResponse
@@ -352,3 +366,19 @@ type RpzName struct {
 // 	}
 // 	return protoReaperData
 // }
+
+type TemStatusUpdate struct {
+	Status    string
+	Component string // downstream | rpz | mqtt | config | ...
+	Msg       string
+	Response  chan TemStatus
+}
+
+type TemStatus struct {
+	ComponentStatus map[string]string    // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	TimeStamps      map[string]time.Time // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	Counters        map[string]int       // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	ErrorMsgs       map[string]string    // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	NumFailures     int
+	LastFailure     time.Time
+}

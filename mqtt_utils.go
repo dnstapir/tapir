@@ -97,16 +97,17 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 	me := MqttEngine{
 		// Topic:         viper.GetString("mqtt.topic"),
-		Server:        server,
-		ClientID:      clientid,
-		ClientCert:    clientCert,
-		CaCertPool:    caCertPool,
-		SigningKeys:   make(map[string]*ecdsa.PrivateKey),
-		ValidatorKeys: make(map[string]*ecdsa.PublicKey),
-		MsgCounters:   make(map[string]uint32),
-		MsgTimeStamps: make(map[string]time.Time),
-		Logger:        lg,
-		QoS:           qos,
+		Server:     server,
+		ClientID:   clientid,
+		ClientCert: clientCert,
+		CaCertPool: caCertPool,
+		// SigningKeys:   make(map[string]*ecdsa.PrivateKey),
+		// ValidatorKeys: make(map[string]*ecdsa.PublicKey),
+		TopicData: make(map[string]TopicData),
+		// MsgCounters:   make(map[string]uint32),
+		// MsgTimeStamps: make(map[string]time.Time),
+		Logger: lg,
+		QoS:    qos,
 	}
 
 	if pubsub&TapirPub == 0 {
@@ -138,8 +139,11 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 
 		var subs []paho.SubscribeOptions
 		if me.CanSubscribe {
-			for topic := range me.ValidatorKeys {
-				subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
+			// for topic := range me.ValidatorKeys {
+			for topic, data := range me.TopicData {
+				if data.ValidatorKey != nil {
+					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
+				}
 			}
 
 			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
@@ -296,7 +300,9 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					}
 				}
 
-				signingkey := me.SigningKeys[outbox.Topic]
+				td := me.TopicData[outbox.Topic]
+				// signingkey := me.SigningKeys[outbox.Topic]
+				signingkey := td.SigningKey
 				if signingkey == nil {
 					lg.Printf("MQTT Engine: Danger Will Robinson: signing key for MQTT topic %s not found. Dropping message.", outbox.Topic)
 				} else {
@@ -313,6 +319,10 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 						lg.Printf("MQTT Engine: error sending message: %v", err)
 						continue
 					}
+
+					td.PubMsgs++
+					td.LatestPub = time.Now()
+					me.TopicData[outbox.Topic] = td
 					if GlobalCF.Debug {
 						lg.Printf("sent signed JWS: %s", string(sMsg))
 					}
@@ -324,9 +334,14 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 				}
 				pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
 				log.Printf("MQTT Engine: topic: %v", inbox.Packet.Topic)
-				me.MsgCounters[inbox.Packet.Topic]++
-				me.MsgTimeStamps[inbox.Packet.Topic] = time.Now()
-				validatorkey := me.ValidatorKeys[inbox.Packet.Topic]
+				// me.MsgCounters[inbox.Packet.Topic]++
+				td := me.TopicData[inbox.Packet.Topic]
+				td.SubMsgs++
+				td.LatestSub = time.Now()
+				me.TopicData[inbox.Packet.Topic] = td
+				// me.MsgTimeStamps[inbox.Packet.Topic] = time.Now()
+				// validatorkey := me.ValidatorKeys[inbox.Packet.Topic]
+				validatorkey := td.ValidatorKey
 				if validatorkey == nil {
 					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Packet.Topic)
 				} else {
@@ -371,25 +386,70 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	return &me, nil
 }
 
-func (me *MqttEngine) AddTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey) error {
+// func (me *MqttEngine) AddTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey) error {
+//	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
+//	if topic == "" {
+//		return fmt.Errorf("AddTopic: topic not specified")
+//	}
+//	if signingkey == nil && validatorkey == nil {
+//		return fmt.Errorf("AddTopic: no signing or validator key specified")
+//	}
+
+//	if signingkey != nil {
+//		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
+//		me.SigningKeys[topic] = signingkey
+//		log.Printf("MQTT Engine: added topic %s signingkey. Engine now has %d topics", topic, len(me.SigningKeys))
+//	}
+//	if validatorkey != nil {
+//		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
+//		me.ValidatorKeys[topic] = validatorkey
+//		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.ValidatorKeys))
+//	}
+
+// does the MqttEngine already have a connection manager (i.e. is it already running)	// does the MqttEngine already have a connection manager (i.e. is it already running)
+//	if me.ConnectionManager != nil {
+//		if _, err := me.ConnectionManager.Subscribe(context.Background(), &paho.Subscribe{
+//			Subscriptions: []paho.SubscribeOptions{
+//				{
+//					Topic: topic,
+//					QoS:   byte(me.QoS),
+//				},
+//			},
+//		}); err != nil {
+//			return fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
+//		}
+//		log.Printf("MQTT Engine: added topic %s to running MQTT Engine. Engine now has %d topics", topic, len(me.ValidatorKeys))
+//	}
+
+//	return nil
+//}
+
+func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey, subscriberCh chan MqttPkg) error {
 	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic == "" {
-		return fmt.Errorf("AddTopic: topic not specified")
+		return fmt.Errorf("PubSubToTopic: topic not specified")
 	}
-	if signingkey == nil && validatorkey == nil {
-		return fmt.Errorf("AddTopic: no signing or validator key specified")
+	if validatorkey == nil && signingkey == nil {
+		return fmt.Errorf("PubSubToTopic: no validator or signing key specified")
 	}
+
+	var tdata TopicData
 
 	if signingkey != nil {
 		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
-		me.SigningKeys[topic] = signingkey
-		log.Printf("MQTT Engine: added topic %s signingkey. Engine now has %d topics", topic, len(me.SigningKeys))
+		// me.SigningKeys[topic] = signingkey
+		tdata.SigningKey = signingkey
+		log.Printf("MQTT Engine: added topic %s signingkey. Engine now has %d topics", topic, len(me.TopicData))
 	}
+
 	if validatorkey != nil {
-		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
-		me.ValidatorKeys[topic] = validatorkey
-		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.ValidatorKeys))
+		// me.ValidatorKeys[topic] = validatorkey
+		tdata.ValidatorKey = validatorkey
+		tdata.SubscriberCh = subscriberCh
+		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.TopicData))
 	}
+
+	me.TopicData[topic] = tdata
 
 	// does the MqttEngine already have a connection manager (i.e. is it already running)
 	if me.ConnectionManager != nil {
@@ -403,7 +463,7 @@ func (me *MqttEngine) AddTopic(topic string, signingkey *ecdsa.PrivateKey, valid
 		}); err != nil {
 			return fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
 		}
-		log.Printf("MQTT Engine: added topic %s to running MQTT Engine. Engine now has %d topics", topic, len(me.ValidatorKeys))
+		log.Printf("MQTT Engine: added topic %s to running MQTT Engine. Engine now has %d topics", topic, len(me.TopicData))
 	}
 
 	return nil
@@ -417,9 +477,10 @@ func (me *MqttEngine) RemoveTopic(topic string) error {
 			return fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
 		}
 	}
-	delete(me.SigningKeys, topic)
-	delete(me.ValidatorKeys, topic)
-	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.ValidatorKeys))
+	// delete(me.SigningKeys, topic)
+	// delete(me.ValidatorKeys, topic)
+	delete(me.TopicData, topic)
+	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.TopicData))
 	return nil
 }
 
@@ -460,11 +521,12 @@ func (me *MqttEngine) RestartEngine() (chan MqttEngineCmd, error) {
 	return me.CmdChan, nil
 }
 
-func (me *MqttEngine) Stats() MqttStats {
-	return MqttStats{
-		MsgCounters:   me.MsgCounters,
-		MsgTimeStamps: me.MsgTimeStamps,
-	}
+func (me *MqttEngine) Stats() map[string]TopicData {
+	//	return MqttStats{
+	//		MsgCounters:   me.MsgCounters,
+	//		MsgTimeStamps: me.MsgTimeStamps,
+	//	}
+	return me.TopicData
 }
 
 // Trivial interrupt handler to catch SIGTERM and stop the MQTT engine nicely
