@@ -105,11 +105,13 @@ type BootstrapPost struct {
 }
 
 type BootstrapResponse struct {
-	Time     time.Time
-	Status   string
-	Msg      string
-	Error    bool
-	ErrorMsg string
+	Time          time.Time
+	Status        string
+	Msg           string
+	MsgCounters   map[string]uint32    // map[topic]counter
+	MsgTimeStamps map[string]time.Time // map[topic]timestamp
+	Error         bool
+	ErrorMsg      string
 }
 
 type DebugPost struct {
@@ -141,8 +143,8 @@ type DebugResponse struct {
 }
 
 type MqttStats struct {
-	MsgCounter   map[string]uint32
-	MsgTimeStamp map[string]time.Time
+	MsgCounters   map[string]uint32
+	MsgTimeStamps map[string]time.Time
 }
 
 type Api struct {
@@ -183,21 +185,39 @@ type MqttPkg struct {
 	Error     bool   // only used for sub.
 	ErrorMsg  string // only used for sub.
 	Msg       string
+	Topic     string // topic on which this message arrived
+	Retain    bool
 	Data      TapirMsg
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
 }
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName   string // must match a defined source
-	Creator   string // "spark"	|| "tapir-cli"
-	MsgType   string // "intel-update", "reset", "global-config"...
-	ListType  string // "{white|black|grey}list"
-	Added     []Domain
-	Removed   []Domain
-	Msg       string
-	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
-	TimeStr   string    // time string encoded in the payload by the sender, not touched by MQTTs
+	SrcName      string // must match a defined source
+	Creator      string // "spark"	|| "tapir-cli"
+	MsgType      string // "observation", "reset", "global-config"...
+	ListType     string // "{white|black|grey}list"
+	Added        []Domain
+	Removed      []Domain
+	Msg          string
+	GlobalConfig GlobalConfig
+	TimeStamp    time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr      string    // time string encoded in the payload by the sender, not touched by MQTTs
+}
+
+// Things we need to have in the global config include:
+// - dns-tapir bootstrap server details
+// - number of RRs to send in a dns.Envelope{}
+type GlobalConfig struct {
+	TapirConfigVersion string
+	Rpz                struct {
+		EnvelopeSize int // Number of dns.RRs per zone transfer envelope
+	}
+	Bootstrap struct {
+		Servers []string
+		BaseUrl string
+		ApiKey  string
+	}
 }
 
 type Domain struct {
@@ -210,12 +230,12 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-	Topic             string
-	ClientID          string
-	Server            string
-	QoS               int
-	PrivKey           *ecdsa.PrivateKey
-	PubKey            any
+	Topic    string
+	ClientID string
+	Server   string
+	QoS      int
+	//	PrivKey           *ecdsa.PrivateKey
+	//	PubKey            any
 	ConnectionManager *autopaho.ConnectionManager
 	ClientCert        tls.Certificate
 	CaCertPool        *x509.CertPool
@@ -223,11 +243,12 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
-	ValidatorKeys     map[string]*ecdsa.PublicKey
-	MsgCounter        map[string]uint32
-	MsgTimeStamp      map[string]time.Time
-	CanPublish        bool
-	CanSubscribe      bool
+	SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
+	ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
+	MsgCounters       map[string]uint32            // map[topic]counter
+	MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
+	CanPublish        bool                         // can publish to all topics
+	CanSubscribe      bool                         // can subscribe to all topics
 	Logger            *log.Logger
 	Cancel            context.CancelFunc
 }
