@@ -423,9 +423,10 @@ func (me *MqttEngine) RemoveTopic(topic string) error {
 }
 
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkg, chan MqttPkg, error) {
-	if len(me.ValidatorKeys) == 0 && len(me.SigningKeys) == 0 {
-		return nil, nil, nil, fmt.Errorf("MQTT Engine: no topics added")
-	}
+	// We can start the mqtt engine without topics, topics may be added later
+	// if len(me.ValidatorKeys) == 0 && len(me.SigningKeys) == 0 {
+	//	return nil, nil, nil, fmt.Errorf("MQTT Engine: no topics added")
+	//}
 	resp := make(chan MqttEngineResponse, 1)
 	me.CmdChan <- MqttEngineCmd{Cmd: "start", Resp: resp}
 	r := <-resp
