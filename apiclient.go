@@ -243,6 +243,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 		// } else if api.AuthMethod == "none" {
 		// do not add any authentication header at all
 	}
+	// log.Printf("api.RequestNG: api: %+v req: %+v", api, req)
 	resp, err := api.HttpClient.Do(req)
 
 	if err != nil {
