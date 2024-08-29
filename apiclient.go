@@ -1,5 +1,6 @@
 /*
- * Johan Stenstam, johani@johani.org
+ * Copyright (c) 2024  DNS TAPIR
+ *
  */
 package tapir
 
