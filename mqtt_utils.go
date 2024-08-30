@@ -42,7 +42,7 @@ const (
 	TapirSub
 )
 
-func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, error) {
+func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate, lg *log.Logger) (*MqttEngine, error) {
 	if pubsub == 0 {
 		return nil, fmt.Errorf("either (or both) pub or sub support must be requested for MQTT Engine")
 	}
@@ -93,6 +93,58 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load client certificate in file %s: %w", clientCertFile, err)
+	}
+
+	// Check if the client certificate is expiring soon (less than a month away)
+	now := time.Now()
+	expirationDays := viper.GetInt("certs.expirationwarning")
+	if expirationDays == 0 {
+		expirationDays = 30
+	}
+	expirationWarningThreshold := now.AddDate(0, 0, expirationDays)
+	if clientCert.Leaf == nil {
+		// Parse the certificate if Leaf is not available
+		cert, err := x509.ParseCertificate(clientCert.Certificate[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse client certificate: %w", err)
+		}
+		clientCert.Leaf = cert
+	}
+
+	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", clientCertFile, clientCert.Leaf.NotBefore, clientCert.Leaf.NotAfter)
+
+	if clientCert.Leaf.NotAfter.Before(expirationWarningThreshold) {
+		msg := fmt.Sprintf("Client certificate will expire on %v (less than a %d days away)", clientCert.Leaf.NotAfter, expirationDays)
+		lg.Printf("WARNING: %s", msg)
+		statusch <- TemStatusUpdate{
+			Component: "cert-status",
+			Status:    "failure",
+			Msg:       msg,
+		}
+	}
+
+	// Check if any of the CA certificates are expiring soon
+	block, _ := pem.Decode([]byte(caCert))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing the certificate")
+	}
+	// log.Printf("Parsed CA cert: %+v", block)
+	certs, err := x509.ParseCertificates(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CA certificates in file %s: %w", cacertFile, err)
+	}
+
+	for _, caCert := range certs {
+		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", cacertFile, caCert.NotBefore, caCert.NotAfter)
+		if caCert.NotAfter.Before(expirationWarningThreshold) {
+			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (less than a %d days away)", caCert.Subject, caCert.NotAfter, expirationDays)
+			lg.Printf("WARNING: %s", msg)
+			statusch <- TemStatusUpdate{
+				Component: "cert-status",
+				Status:    "failure",
+				Msg:       msg,
+			}
+		}
 	}
 
 	me := MqttEngine{
@@ -324,7 +376,7 @@ func NewMqttEngine(clientid string, pubsub uint8, lg *log.Logger) (*MqttEngine, 
 					td.LatestPub = time.Now()
 					me.TopicData[outbox.Topic] = td
 					if GlobalCF.Debug {
-						lg.Printf("sent signed JWS: %s", string(sMsg))
+						lg.Printf("MQTT Engine: sent signed JWS: %s", string(sMsg))
 					}
 				}
 
@@ -439,17 +491,18 @@ func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, 
 		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
 		// me.SigningKeys[topic] = signingkey
 		tdata.SigningKey = signingkey
-		log.Printf("MQTT Engine: added topic %s signingkey. Engine now has %d topics", topic, len(me.TopicData))
+		log.Printf("MQTT Engine: added signingkey for topic %s.", topic)
 	}
 
 	if validatorkey != nil {
 		// me.ValidatorKeys[topic] = validatorkey
 		tdata.ValidatorKey = validatorkey
 		tdata.SubscriberCh = subscriberCh
-		log.Printf("MQTT Engine: added topic %s validatorkey. Engine now has %d topics", topic, len(me.TopicData))
+		log.Printf("MQTT Engine: added validatorkey for topic %s.", topic)
 	}
 
 	me.TopicData[topic] = tdata
+	log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.TopicData))
 
 	// does the MqttEngine already have a connection manager (i.e. is it already running)
 	if me.ConnectionManager != nil {
