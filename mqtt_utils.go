@@ -42,7 +42,7 @@ const (
 	TapirSub
 )
 
-func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate, lg *log.Logger) (*MqttEngine, error) {
+func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan ComponentStatusUpdate, lg *log.Logger) (*MqttEngine, error) {
 	if pubsub == 0 {
 		return nil, fmt.Errorf("either (or both) pub or sub support must be requested for MQTT Engine")
 	}
@@ -114,12 +114,13 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", clientCertFile, clientCert.Leaf.NotBefore, clientCert.Leaf.NotAfter)
 
 	if clientCert.Leaf.NotAfter.Before(expirationWarningThreshold) {
-		msg := fmt.Sprintf("Client certificate will expire on %v (less than a %d days away)", clientCert.Leaf.NotAfter, expirationDays)
+		msg := fmt.Sprintf("Client certificate will expire on %v (< %d days away)", clientCert.Leaf.NotAfter.Format(TimeLayout), expirationDays)
 		lg.Printf("WARNING: %s", msg)
-		statusch <- TemStatusUpdate{
+		statusch <- ComponentStatusUpdate{
 			Component: "cert-status",
-			Status:    "failure",
+			Status:    "warn",
 			Msg:       msg,
+			TimeStamp: time.Now(),
 		}
 	}
 
@@ -137,29 +138,26 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 	for _, caCert := range certs {
 		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", cacertFile, caCert.NotBefore, caCert.NotAfter)
 		if caCert.NotAfter.Before(expirationWarningThreshold) {
-			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (less than a %d days away)", caCert.Subject, caCert.NotAfter, expirationDays)
+			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (< %d days away)", caCert.Subject, caCert.NotAfter.Format(TimeLayout), expirationDays)
 			lg.Printf("WARNING: %s", msg)
-			statusch <- TemStatusUpdate{
+			statusch <- ComponentStatusUpdate{
 				Component: "cert-status",
-				Status:    "failure",
+				Status:    "warn",
 				Msg:       msg,
+				TimeStamp: time.Now(),
 			}
 		}
 	}
 
 	me := MqttEngine{
-		// Topic:         viper.GetString("mqtt.topic"),
 		Server:     server,
+		Creator:    creator,
 		ClientID:   clientid,
 		ClientCert: clientCert,
 		CaCertPool: caCertPool,
-		// SigningKeys:   make(map[string]*ecdsa.PrivateKey),
-		// ValidatorKeys: make(map[string]*ecdsa.PublicKey),
-		TopicData: make(map[string]TopicData),
-		// MsgCounters:   make(map[string]uint32),
-		// MsgTimeStamps: make(map[string]time.Time),
-		Logger: lg,
-		QoS:    qos,
+		TopicData:  make(map[string]TopicData),
+		Logger:     lg,
+		QoS:        qos,
 	}
 
 	if pubsub&TapirPub == 0 {
@@ -194,7 +192,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 			// for topic := range me.ValidatorKeys {
 			for topic, data := range me.TopicData {
 				if data.ValidatorKey != nil {
-					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS)})
+					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: true})
 				}
 			}
 
@@ -215,7 +213,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 			CleanStartOnInitialConnection: false,
 			SessionExpiryInterval:         60,
 			OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
-				lg.Println("MQTT Engine: MQTT connection up")
+				lg.Printf("MQTT Engine %s: MQTT connection up", me.Creator)
 				if subs != nil {
 					sa, err := cm.Subscribe(context.Background(), &paho.Subscribe{
 						Subscriptions: subs,
@@ -291,7 +289,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 			return err
 		}
 
-		lg.Printf("Connected to %s\n", me.Server)
+		lg.Printf("MQTT Engine %s: Connected to %s\n", me.Creator, me.Server)
 
 		resp <- MqttEngineResponse{
 			Error:  false,
@@ -324,10 +322,11 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 			select {
 			case outbox := <-me.PublishChan:
 				if !me.CanPublish {
-					lg.Printf("Error: pub request but this engine is unable to publish messages")
+					lg.Printf("MQTT Engine %s: Error: pub request but this engine is unable to publish messages", me.Creator)
 					continue
 				}
 
+				lg.Printf("MQTT Engine %s: will publish message on topic: %s", me.Creator, outbox.Topic)
 				switch outbox.Type {
 				case "text":
 					buf.Reset()
@@ -336,31 +335,35 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 						lg.Printf("Error from buf.Writestring(): %v", err)
 					}
 					if GlobalCF.Debug {
-						lg.Printf("MQTT Engine: received text msg: %s", outbox.Msg)
+						lg.Printf("MQTT Engine %s: received text msg: %s", me.Creator, outbox.Msg)
 					}
 
 				case "data":
 					if GlobalCF.Debug {
-						lg.Printf("MQTT Engine: received raw data: %v", outbox.Data)
+						lg.Printf("MQTT Engine %s: received raw data: %+v", me.Creator, outbox.Data)
 					}
 					buf.Reset()
 					outbox.TimeStamp = time.Now()
 					err = jenc.Encode(outbox.Data)
 					if err != nil {
-						lg.Printf("MQTT Engine: Error from json.NewEncoder: %v", err)
+						lg.Printf("MQTT Engine %s: Error from json.NewEncoder: %v", me.Creator, err)
 						continue
 					}
+
+				default:
+					lg.Printf("MQTT Engine: unknown outbox message type: %s. Ignoring message.", outbox.Type)
+					continue
 				}
 
 				td := me.TopicData[outbox.Topic]
 				// signingkey := me.SigningKeys[outbox.Topic]
 				signingkey := td.SigningKey
 				if signingkey == nil {
-					lg.Printf("MQTT Engine: Danger Will Robinson: signing key for MQTT topic %s not found. Dropping message.", outbox.Topic)
+					lg.Printf("MQTT Engine %s: Danger Will Robinson: signing key for MQTT topic %s not found. Dropping message.", me.Creator, outbox.Topic)
 				} else {
 					sMsg, err := jws.Sign(buf.Bytes(), jws.WithJSON(), jws.WithKey(jwa.ES256, signingkey))
 					if err != nil {
-						lg.Printf("MQTT Engine: failed to create JWS message: %s", err)
+						lg.Printf("MQTT Engine %s: failed to create JWS message: %s", me.Creator, err)
 					}
 
 					if _, err = me.ConnectionManager.Publish(context.Background(), &paho.Publish{
@@ -368,7 +371,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 						Payload: sMsg,
 						Retain:  outbox.Retain,
 					}); err != nil {
-						lg.Printf("MQTT Engine: error sending message: %v", err)
+						lg.Printf("MQTT Engine %s: error sending message: %v", me.Creator, err)
 						continue
 					}
 
@@ -376,16 +379,16 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 					td.LatestPub = time.Now()
 					me.TopicData[outbox.Topic] = td
 					if GlobalCF.Debug {
-						lg.Printf("MQTT Engine: sent signed JWS: %s", string(sMsg))
+						lg.Printf("MQTT Engine %s: sent signed JWS: %s", me.Creator, string(sMsg))
 					}
 				}
 
 			case inbox := <-me.MsgChan:
 				if GlobalCF.Debug {
-					lg.Println("MQTT Engine: received message:", string(inbox.Packet.Payload))
+					// lg.Printf("MQTT Engine %s: received message: %s", me.Creator, string(inbox.Packet.Payload))
 				}
 				pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
-				log.Printf("MQTT Engine: topic: %v", inbox.Packet.Topic)
+				lg.Printf("MQTT Engine %s: received message on topic: %v", me.Creator, inbox.Packet.Topic)
 				// me.MsgCounters[inbox.Packet.Topic]++
 				td := me.TopicData[inbox.Packet.Topic]
 				td.SubMsgs++
@@ -395,22 +398,23 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 				// validatorkey := me.ValidatorKeys[inbox.Packet.Topic]
 				validatorkey := td.ValidatorKey
 				if validatorkey == nil {
-					lg.Printf("MQTT Engine: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", inbox.Packet.Topic)
+					lg.Printf("MQTT Engine %s: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", me.Creator, inbox.Packet.Topic)
+					lg.Printf("MQTT Engine %s: TopicData: %+v", me.Creator, me.TopicData)
 				} else {
 					payload, err := jws.Verify(inbox.Packet.Payload, jws.WithKey(jwa.ES256, validatorkey))
 					if err != nil {
 						pkg.Error = true
-						pkg.ErrorMsg = fmt.Sprintf("MQTT Engine: failed to verify message: %v", err)
-						lg.Printf("MQTT Engine: failed to verify message: %v", err)
+						pkg.ErrorMsg = fmt.Sprintf("MQTT Engine %s: failed to verify message: %v", me.Creator, err)
+						lg.Printf("MQTT Engine %s: failed to verify message: %v", me.Creator, err)
 						// log.Printf("MQTT Engine: received msg: %v", string(inbox.Payload))
 					} else {
-						lg.Printf("MQTT Engine: verified message: %s", string(payload))
+						lg.Printf("MQTT Engine %s: verified message: %s", me.Creator, string(payload))
 						r := bytes.NewReader(payload)
 						pkg.Topic = inbox.Packet.Topic
 						err = json.NewDecoder(r).Decode(&pkg.Data)
 						if err != nil {
 							pkg.Error = true
-							pkg.ErrorMsg = fmt.Sprintf("MQTT Engine: failed to decode json: %v", err)
+							pkg.ErrorMsg = fmt.Sprintf("MQTT Engine %s: failed to decode json: %v", me.Creator, err)
 						}
 					}
 
@@ -418,7 +422,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 				}
 
 			case cmd := <-me.CmdChan:
-				fmt.Printf("MQTT Engine: %s command received\n", cmd.Cmd)
+				fmt.Printf("MQTT Engine %s: %s command received\n", me.Creator, cmd.Cmd)
 				switch cmd.Cmd {
 				case "stop":
 					StopEngine(cmd.Resp)
@@ -430,7 +434,7 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 				default:
 					lg.Printf("MQTT Engine: Error: unknown command: %s", cmd.Cmd)
 				}
-				fmt.Printf("MQTT Engine: cmd %s handled.\n", cmd.Cmd)
+				fmt.Printf("MQTT Engine %s: cmd %s handled.\n", me.Creator, cmd.Cmd)
 			}
 		}
 	}()
@@ -476,13 +480,13 @@ func NewMqttEngine(clientid string, pubsub uint8, statusch chan TemStatusUpdate,
 //	return nil
 //}
 
-func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey, subscriberCh chan MqttPkg) error {
+func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey, subscriberCh chan MqttPkg) (map[string]TopicData, error) {
 	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic == "" {
-		return fmt.Errorf("PubSubToTopic: topic not specified")
+		return me.TopicData, fmt.Errorf("PubSubToTopic: topic not specified")
 	}
 	if validatorkey == nil && signingkey == nil {
-		return fmt.Errorf("PubSubToTopic: no validator or signing key specified")
+		return me.TopicData, fmt.Errorf("PubSubToTopic: no validator or signing key specified")
 	}
 
 	var tdata TopicData
@@ -491,18 +495,18 @@ func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, 
 		// log.Printf("MQTT Engine: AddTopic: me: %v", me)
 		// me.SigningKeys[topic] = signingkey
 		tdata.SigningKey = signingkey
-		log.Printf("MQTT Engine: added signingkey for topic %s.", topic)
+		log.Printf("MQTT Engine %s: added signingkey for topic %s.", me.Creator, topic)
 	}
 
 	if validatorkey != nil {
 		// me.ValidatorKeys[topic] = validatorkey
 		tdata.ValidatorKey = validatorkey
 		tdata.SubscriberCh = subscriberCh
-		log.Printf("MQTT Engine: added validatorkey for topic %s.", topic)
+		log.Printf("MQTT Engine %s: added validatorkey for topic %s.", me.Creator, topic)
 	}
 
 	me.TopicData[topic] = tdata
-	log.Printf("MQTT Engine: added topic %s. Engine now has %d topics", topic, len(me.TopicData))
+	log.Printf("MQTT Engine %s: added topic %s. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
 
 	// does the MqttEngine already have a connection manager (i.e. is it already running)
 	if me.ConnectionManager != nil {
@@ -514,27 +518,27 @@ func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, 
 				},
 			},
 		}); err != nil {
-			return fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
+			return me.TopicData, fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
 		}
-		log.Printf("MQTT Engine: added topic %s to running MQTT Engine. Engine now has %d topics", topic, len(me.TopicData))
+		log.Printf("MQTT Engine %s: added topic %s to running MQTT Engine. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
 	}
 
-	return nil
+	return me.TopicData, nil
 }
 
-func (me *MqttEngine) RemoveTopic(topic string) error {
+func (me *MqttEngine) RemoveTopic(topic string) (map[string]TopicData, error) {
 	if me.ConnectionManager != nil {
 		if _, err := me.ConnectionManager.Unsubscribe(context.Background(), &paho.Unsubscribe{
 			Topics: []string{topic},
 		}); err != nil {
-			return fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
+			return me.TopicData, fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
 		}
 	}
 	// delete(me.SigningKeys, topic)
 	// delete(me.ValidatorKeys, topic)
 	delete(me.TopicData, topic)
 	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.TopicData))
-	return nil
+	return me.TopicData, nil
 }
 
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkg, chan MqttPkg, error) {

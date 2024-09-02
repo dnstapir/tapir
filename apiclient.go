@@ -289,7 +289,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 			// XXX: Let's assume that the response isn't JSON.
 			// log.Println("JSON parse error: ", err)
 		} else {
-			fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), string(buf))
+			fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), prettyJSON.String())
 		}
 	}
 

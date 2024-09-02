@@ -9,3 +9,5 @@ const PopOutputsCfgFile = "/etc/dnstapir/pop-outputs.yaml"
 const PopPolicyCfgFile = "/etc/dnstapir/pop-policy.yaml"
 
 const DefaultTapirCliCfgFile = "/etc/dnstapir/tapir-cli.yaml"
+
+const DefaultSloggerCfgFile = "/etc/dnstapir/slogger.yaml"
