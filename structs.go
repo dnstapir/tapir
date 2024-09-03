@@ -88,14 +88,29 @@ type CommandPost struct {
 }
 
 type CommandResponse struct {
-	Time     time.Time
-	Status   string
-	Zone     string
-	Serial   uint32
-	Data     []byte
-	Msg      string
-	Error    bool
-	ErrorMsg string
+	Time                time.Time
+	Status              string
+	Zone                string
+	Serial              uint32
+	Data                []byte
+	Msg                 string
+	TapirFunctionStatus TapirFunctionStatus
+	Error               bool
+	ErrorMsg            string
+}
+
+type SloggerCmdPost struct {
+	Command string
+}
+
+type SloggerCmdResponse struct {
+	Time time.Time
+	// TapirFunctionStatus TapirFunctionStatus
+	PopStatus map[string]TapirFunctionStatus
+	EdmStatus map[string]TapirFunctionStatus
+	Msg       string
+	Error     bool
+	ErrorMsg  string
 }
 
 type BootstrapPost struct {
@@ -105,20 +120,23 @@ type BootstrapPost struct {
 }
 
 type BootstrapResponse struct {
-	Time          time.Time
-	Status        string
-	Msg           string
-	MsgCounters   map[string]uint32    // map[topic]counter
-	MsgTimeStamps map[string]time.Time // map[topic]timestamp
-	Error         bool
-	ErrorMsg      string
+	Time   time.Time
+	Status string
+	Msg    string
+	// MsgCounters   map[string]uint32    // map[topic]counter
+	// MsgTimeStamps map[string]time.Time // map[topic]timestamp
+	TopicData map[string]TopicData
+	Error     bool
+	ErrorMsg  string
 }
 
 type DebugPost struct {
-	Command string
-	Zone    string
-	Qname   string
-	Qtype   uint16
+	Command   string
+	Zone      string
+	Qname     string
+	Qtype     uint16
+	Component string
+	Status    string
 }
 
 type DebugResponse struct {
@@ -136,6 +154,7 @@ type DebugResponse struct {
 	GreylistedNames  map[string]*TapirName
 	RpzOutput        []RpzName
 	MqttStats        MqttStats
+	TopicData        map[string]TopicData
 	ReaperStats      map[string]map[time.Time][]string
 	Msg              string
 	Error            bool
@@ -193,16 +212,17 @@ type MqttPkg struct {
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName      string // must match a defined source
-	Creator      string // "spark"	|| "tapir-cli"
-	MsgType      string // "observation", "reset", "global-config"...
-	ListType     string // "{white|black|grey}list"
-	Added        []Domain
-	Removed      []Domain
-	Msg          string
-	GlobalConfig GlobalConfig
-	TimeStamp    time.Time // time encoded in the payload by the sender, not touched by MQTT
-	TimeStr      string    // time string encoded in the payload by the sender, not touched by MQTTs
+	SrcName             string // must match a defined source
+	Creator             string // "spark"	|| "tapir-cli"
+	MsgType             string // "observation", "reset", "global-config"...
+	ListType            string // "{white|black|grey}list"
+	Added               []Domain
+	Removed             []Domain
+	Msg                 string
+	GlobalConfig        GlobalConfig
+	TapirFunctionStatus TapirFunctionStatus
+	TimeStamp           time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr             string    // time string encoded in the payload by the sender, not touched by MQTTs
 }
 
 // Things we need to have in the global config include:
@@ -230,7 +250,8 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-	Topic    string
+	// Topic    string
+	Creator  string
 	ClientID string
 	Server   string
 	QoS      int
@@ -243,16 +264,26 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkg
 	SubscribeChan     chan MqttPkg
-	SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
-	ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
-	MsgCounters       map[string]uint32            // map[topic]counter
-	MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
-	CanPublish        bool                         // can publish to all topics
-	CanSubscribe      bool                         // can subscribe to all topics
-	Logger            *log.Logger
-	Cancel            context.CancelFunc
+	// SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
+	// ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
+	TopicData map[string]TopicData // map[topic]TemStatus
+	// MsgCounters       map[string]uint32            // map[topic]counter
+	//MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
+	CanPublish   bool // can publish to all topics
+	CanSubscribe bool // can subscribe to all topics
+	Logger       *log.Logger
+	Cancel       context.CancelFunc
 }
 
+type TopicData struct {
+	SigningKey   *ecdsa.PrivateKey
+	ValidatorKey *ecdsa.PublicKey
+	SubscriberCh chan MqttPkg
+	PubMsgs      uint32
+	SubMsgs      uint32
+	LatestPub    time.Time
+	LatestSub    time.Time
+}
 type MqttEngineCmd struct {
 	Cmd  string
 	Resp chan MqttEngineResponse
@@ -352,3 +383,47 @@ type RpzName struct {
 // 	}
 // 	return protoReaperData
 // }
+
+// ComponentStatusUpdate is used to send status updates for a single component of a "function" (tapir-pop, tapir-edm, etc)
+type ComponentStatusUpdate struct {
+	Status    string
+	Function  string // tapir-pop | tapir-edm | ...
+	Component string // downstream | rpz | mqtt | config | ...
+	Msg       string
+	TimeStamp time.Time
+	Response  chan StatusUpdaterResponse
+}
+type StatusUpdaterResponse struct {
+	FunctionStatus  TapirFunctionStatus
+	KnownComponents []string
+	Msg             string
+	Error           bool
+	ErrorMsg        string
+}
+
+// TapirFunctionStatus contains the status for all components of this "function" (tapir-pop, tapir-edm, etc)
+type TapirFunctionStatus struct {
+	Function        string // tapir-pop | tapir-edm | ...
+	FunctionID      string
+	ComponentStatus map[string]TapirComponentStatus // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	//TimeStamps      map[string]time.Time            // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	// Counters        map[string]int                  // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	//ErrorMsgs       map[string]string               // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
+	NumFailures int
+	LastFailure time.Time
+}
+
+// TapirComponentStatus contains the status for a single component of a "function" (tapir-pop, tapir-edm, etc)
+type TapirComponentStatus struct {
+	Component string
+	Status    string // ok | fail | warn
+	ErrorMsg  string
+	Msg       string
+	NumFails  int
+	NumWarns  int
+	//TimeOfFail    time.Time
+	//TimeOfSuccess time.Time
+	LastFail    time.Time
+	LastWarn    time.Time
+	LastSuccess time.Time
+}

@@ -1,5 +1,6 @@
 /*
- * Johan Stenstam, johani@johani.org
+ * Copyright (c) 2024  DNS TAPIR
+ *
  */
 package tapir
 
@@ -242,6 +243,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 		// } else if api.AuthMethod == "none" {
 		// do not add any authentication header at all
 	}
+	// log.Printf("api.RequestNG: api: %+v req: %+v", api, req)
 	resp, err := api.HttpClient.Do(req)
 
 	if err != nil {
@@ -287,7 +289,7 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 			// XXX: Let's assume that the response isn't JSON.
 			// log.Println("JSON parse error: ", err)
 		} else {
-			fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), string(buf))
+			fmt.Printf("API%s: received %d bytes of response data: %s\n", method, len(buf), prettyJSON.String())
 		}
 	}
 
