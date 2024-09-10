@@ -480,7 +480,8 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 //	return nil
 //}
 
-func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey, subscriberCh chan MqttPkg) (map[string]TopicData, error) {
+func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey,
+	subscriberCh chan MqttPkg, mode string) (map[string]TopicData, error) {
 	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic == "" {
 		return me.TopicData, fmt.Errorf("PubSubToTopic: topic not specified")
@@ -489,6 +490,9 @@ func (me *MqttEngine) PubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, 
 		return me.TopicData, fmt.Errorf("PubSubToTopic: no validator or signing key specified")
 	}
 
+	if mode != "raw" && mode != "struct" {
+		return me.TopicData, fmt.Errorf("PubSubToTopic: unknown mode: %s", mode)
+	}
 	var tdata TopicData
 
 	if signingkey != nil {
