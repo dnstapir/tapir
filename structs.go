@@ -199,7 +199,8 @@ type PingResponse struct {
 	Pongs      int
 }
 
-type MqttPkg struct {
+// MqttPkg is what is sent to the MQTT Engine and returned when an incoming message is parsed.
+type MqttPkgOut struct {
 	Type      string // text | data, only used on sender side
 	Error     bool   // only used for sub.
 	ErrorMsg  string // only used for sub.
@@ -207,7 +208,30 @@ type MqttPkg struct {
 	Topic     string // topic on which this message arrived
 	Retain    bool
 	Data      TapirMsg
+	RawData   interface{} // outgoing data, an unparsed struct
+	TimeStamp time.Time   // time mqtt packet was sent or received, mgmt by MQTT Engine
+}
+
+type MqttPkgIn struct {
+	Type     string // text | data, only used on sender side
+	Error    bool   // only used for sub.
+	ErrorMsg string // only used for sub.
+	Msg      string
+	Topic    string // topic on which this message arrived
+	Retain   bool
+	//	Data      TapirMsg
+	//	RawData   interface{} // outgoing data, an unparsed struct
+	Payload   []byte // incoming data, as received from the network
+	Validated bool
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
+}
+
+// OBE! MqttData is what is returned from the MQTT Engine for unparsed messages. The payload is left as []byte
+// because it can be of arbitrary type, not just TapirMsg.
+type MqttData struct {
+	Topic     string
+	Payload   []byte
+	Validated bool
 }
 
 // TapirMsg is what is recieved over the MQTT bus.
@@ -250,35 +274,33 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-	// Topic    string
-	Creator  string
-	ClientID string
-	Server   string
-	QoS      int
-	//	PrivKey           *ecdsa.PrivateKey
-	//	PubKey            any
+	Creator           string
+	ClientID          string
+	Server            string
+	QoS               int
 	ConnectionManager *autopaho.ConnectionManager
 	ClientCert        tls.Certificate
 	CaCertPool        *x509.CertPool
 	MsgChan           chan paho.PublishReceived
 	CmdChan           chan MqttEngineCmd
-	PublishChan       chan MqttPkg
-	SubscribeChan     chan MqttPkg
-	// SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
-	// ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
-	TopicData map[string]TopicData // map[topic]TemStatus
-	// MsgCounters       map[string]uint32            // map[topic]counter
-	//MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
-	CanPublish   bool // can publish to all topics
-	CanSubscribe bool // can subscribe to all topics
-	Logger       *log.Logger
-	Cancel       context.CancelFunc
+	PublishChan       chan MqttPkgOut
+	SubscribeChan     chan MqttPkgIn
+	TopicData         map[string]TopicData // map[topic]TemStatus
+	CanPublish        bool                 // can publish to all topics
+	CanSubscribe      bool                 // can subscribe to all topics
+	Logger            *log.Logger
+	Cancel            context.CancelFunc
 }
 
 type TopicData struct {
 	SigningKey   *ecdsa.PrivateKey
+	Sign         bool
 	ValidatorKey *ecdsa.PublicKey
-	SubscriberCh chan MqttPkg
+	Validate     bool   // should incoming messages be validated by the validator key?
+	PubMode      string // "raw" indicates that the data should just be passed through untouched
+	SubMode      string // "raw" indicates that the data should just be passed through untouched
+	// SubscriberCh chan MqttPkg
+	SubscriberCh chan MqttPkgIn
 	PubMsgs      uint32
 	SubMsgs      uint32
 	LatestPub    time.Time
