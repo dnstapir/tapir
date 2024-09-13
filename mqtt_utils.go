@@ -24,6 +24,7 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/gookit/goutil/dump"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/ryanuber/columnize"
@@ -62,98 +63,103 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		qos = 2
 	}
 
-	clientCertFile := viper.GetString("tapir.mqtt.clientcert")
-	if clientCertFile == "" {
-		return nil, fmt.Errorf("MQTT client cert file not specified in config")
-	}
+	//	clientCertFile := viper.GetString("tapir.mqtt.clientcert")
+	//	if clientCertFile == "" {
+	//		return nil, fmt.Errorf("MQTT client cert file not specified in config")
+	//	}
 
-	clientKeyFile := viper.GetString("tapir.mqtt.clientkey")
-	if clientKeyFile == "" {
-		return nil, fmt.Errorf("MQTT client key file not specified in config")
-	}
+	//	clientKeyFile := viper.GetString("tapir.mqtt.clientkey")
+	//	if clientKeyFile == "" {
+	//		return nil, fmt.Errorf("MQTT client key file not specified in config")
+	//	}
 
-	cacertFile := viper.GetString("tapir.mqtt.cacert")
-	if cacertFile == "" {
-		return nil, fmt.Errorf("MQTT CA cert file not specified in config")
-	}
+	//	cacertFile := viper.GetString("tapir.mqtt.cacert")
+	//	if cacertFile == "" {
+	//		return nil, fmt.Errorf("MQTT CA cert file not specified in config")
+	//	}
 
 	// Setup CA cert for validating the MQTT connection
-	cacertFile = filepath.Clean(cacertFile)
-	caCert, err := os.ReadFile(cacertFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate in file %s: %w", cacertFile, err)
-	}
-	caCertPool := x509.NewCertPool()
-	ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
-	if !ok {
-		return nil, fmt.Errorf("failed to parse CA certificate in file %s", cacertFile)
-	}
+	//	cacertFile = filepath.Clean(cacertFile)
+	//	caCert, err := os.ReadFile(cacertFile)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to read CA certificate in file %s: %w", cacertFile, err)
+	//	}
+	//	caCertPool := x509.NewCertPool()
+	//	ok := caCertPool.AppendCertsFromPEM([]byte(caCert))
+	//	if !ok {
+	//		return nil, fmt.Errorf("failed to parse CA certificate in file %s", cacertFile)
+	//	}
 
 	// Setup client cert/key for mTLS authentication
-	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load client certificate in file %s: %w", clientCertFile, err)
-	}
+	//	clientCert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to load client certificate in file %s: %w", clientCertFile, err)
+	//	}
 
 	// Check if the client certificate is expiring soon (less than a month away)
-	now := time.Now()
-	expirationDays := viper.GetInt("certs.expirationwarning")
-	if expirationDays == 0 {
-		expirationDays = 30
-	}
-	expirationWarningThreshold := now.AddDate(0, 0, expirationDays)
-	if clientCert.Leaf == nil {
-		// Parse the certificate if Leaf is not available
-		cert, err := x509.ParseCertificate(clientCert.Certificate[0])
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse client certificate: %w", err)
-		}
-		clientCert.Leaf = cert
-	}
+	//	now := time.Now()
+	//	expirationDays := viper.GetInt("certs.expirationwarning")
+	//	if expirationDays == 0 {
+	//		expirationDays = 30
+	//	}
+	//	expirationWarningThreshold := now.AddDate(0, 0, expirationDays)
+	//	if clientCert.Leaf == nil {
+	//		// Parse the certificate if Leaf is not available
+	//		cert, err := x509.ParseCertificate(clientCert.Certificate[0])
+	//		if err != nil {
+	//			return nil, fmt.Errorf("failed to parse client certificate: %w", err)
+	//		}
+	//		clientCert.Leaf = cert
+	//	}
 
-	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", clientCertFile, clientCert.Leaf.NotBefore, clientCert.Leaf.NotAfter)
+	//	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", clientCertFile, clientCert.Leaf.NotBefore, clientCert.Leaf.NotAfter)
 
-	if clientCert.Leaf.NotAfter.Before(expirationWarningThreshold) {
-		msg := fmt.Sprintf("Client certificate will expire on %v (< %d days away)", clientCert.Leaf.NotAfter.Format(TimeLayout), expirationDays)
-		lg.Printf("WARNING: %s", msg)
-		statusch <- ComponentStatusUpdate{
-			Component: "cert-status",
-			Status:    StatusWarn,
-			Msg:       msg,
-			TimeStamp: time.Now(),
-		}
-	}
+	//	if clientCert.Leaf.NotAfter.Before(expirationWarningThreshold) {
+	//		msg := fmt.Sprintf("Client certificate will expire on %v (< %d days away)", clientCert.Leaf.NotAfter.Format(TimeLayout), expirationDays)
+	//		lg.Printf("WARNING: %s", msg)
+	//		statusch <- ComponentStatusUpdate{
+	//			Component: "cert-status",
+	//			Status:    StatusWarn,
+	//			Msg:       msg,
+	//			TimeStamp: time.Now(),
+	//		}
+	//	}
 
 	// Check if any of the CA certificates are expiring soon
-	block, _ := pem.Decode([]byte(caCert))
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block containing the certificate")
-	}
+	//	block, _ := pem.Decode([]byte(caCert))
+	//	if block == nil {
+	//		return nil, fmt.Errorf("failed to decode PEM block containing the certificate")
+	//	}
 	// log.Printf("Parsed CA cert: %+v", block)
-	certs, err := x509.ParseCertificates(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse CA certificates in file %s: %w", cacertFile, err)
-	}
+	//	certs, err := x509.ParseCertificates(block.Bytes)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to parse CA certificates in file %s: %w", cacertFile, err)
+	//	}
 
-	for _, caCert := range certs {
-		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", cacertFile, caCert.NotBefore, caCert.NotAfter)
-		if caCert.NotAfter.Before(expirationWarningThreshold) {
-			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (< %d days away)", caCert.Subject, caCert.NotAfter.Format(TimeLayout), expirationDays)
-			lg.Printf("WARNING: %s", msg)
-			statusch <- ComponentStatusUpdate{
-				Component: "cert-status",
-				Status:    StatusWarn,
-				Msg:       msg,
-				TimeStamp: time.Now(),
-			}
-		}
+	//	for _, caCert := range certs {
+	//		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", cacertFile, caCert.NotBefore, caCert.NotAfter)
+	//		if caCert.NotAfter.Before(expirationWarningThreshold) {
+	//			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (< %d days away)", caCert.Subject, caCert.NotAfter.Format(TimeLayout), expirationDays)
+	//			lg.Printf("WARNING: %s", msg)
+	//			statusch <- ComponentStatusUpdate{
+	//				Component: "cert-status",
+	//				Status:    StatusWarn,
+	//				Msg:       msg,
+	//				TimeStamp: time.Now(),
+	//			}
+	//		}
+	//	}
+
+	_, caCertPool, clientCert, err := FetchTapirClientCert(lg, statusch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch client certificate: %w", err)
 	}
 
 	me := MqttEngine{
 		Server:     server,
 		Creator:    creator,
 		ClientID:   clientid,
-		ClientCert: clientCert,
+		ClientCert: *clientCert,
 		CaCertPool: caCertPool,
 		TopicData:  make(map[string]TopicData),
 		Logger:     lg,
@@ -189,17 +195,19 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 
 		var subs []paho.SubscribeOptions
 		if me.CanSubscribe {
-			// for topic := range me.ValidatorKeys {
+			nolocal := false
 			for topic, data := range me.TopicData {
-				if data.ValidatorKey != nil {
-					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: true})
+				// if data.ValidatorKey != nil {
+				if data.SubMode != "" {
+					lg.Printf("MQTT Engine: subscribing to topic %s with mode %s, qos: %d", topic, data.SubMode, me.QoS)
+					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: nolocal})
 				}
 			}
 
 			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
-			for _, v := range subs {
-				lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
-			}
+			// for _, v := range subs {
+			// 	lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
+			// }
 		}
 
 		apcConfig := autopaho.ClientConfig{
@@ -386,32 +394,38 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 					}
 				} else {
 					payload = buf.Bytes()
+					lg.Printf("MQTT Engine %s: not signing raw message being sent to topic %s", me.Creator, outbox.Topic)
 				}
 
 				mqttMsg := paho.Publish{
 					Topic:   outbox.Topic,
 					Payload: payload,
+					QoS:     byte(me.QoS),
 					Retain:  outbox.Retain,
 				}
-				if _, err = me.ConnectionManager.Publish(context.Background(), &mqttMsg); err != nil {
+				pubresponse, err := me.ConnectionManager.Publish(context.Background(), &mqttMsg)
+				if err != nil {
 					lg.Printf("MQTT Engine %s: error sending message: %v", me.Creator, err)
 					continue
 				}
+
+				fmt.Printf("MQTT Engine %s: publish qos: %d, response: %+v\n", me.Creator, me.QoS, pubresponse)
+				dump.P(pubresponse)
 
 				td.PubMsgs++
 				td.LatestPub = time.Now()
 				me.TopicData[outbox.Topic] = td
 				if GlobalCF.Debug {
-					lg.Printf("MQTT Engine %s: sent signed JWS: %s", me.Creator, string(payload))
+					lg.Printf("MQTT Engine %s: sent message on topic %s: %s", me.Creator, outbox.Topic, string(payload))
 				}
 
 			case inbox := <-me.MsgChan:
 				if GlobalCF.Debug {
 					// lg.Printf("MQTT Engine %s: received message: %s", me.Creator, string(inbox.Packet.Payload))
 				}
-				// pkg := MqttPkg{TimeStamp: time.Now(), Data: TapirMsg{}}
+
 				lg.Printf("MQTT Engine %s: received message on topic: %v", me.Creator, inbox.Packet.Topic)
-				// me.MsgCounters[inbox.Packet.Topic]++
+
 				td := me.TopicData[inbox.Packet.Topic]
 				td.SubMsgs++
 				td.LatestSub = time.Now()
@@ -451,17 +465,11 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 					//}
 
 				} else {
-					// payload := inbox.Packet.Payload
-					//r := bytes.NewReader(payload)
-					// pkg.Topic = inbox.Packet.Topic
-					// err = json.NewDecoder(r).Decode(&pkg.Data)
-					// if err != nil {
-					//    pkg.Error = true
-					//    pkg.ErrorMsg = fmt.Sprintf("MQTT Engine %s: failed to decode json: %v", me.Creator, err)
-					// }
-
+					lg.Printf("MQTT Engine %s: unvalidated message: %s", me.Creator, inbox.Packet.Payload)
 				}
+				lg.Printf("MQTT Engine td.SubscriberCh: %+v", td.SubscriberCh)
 				td.SubscriberCh <- mpi
+				lg.Printf("MQTT Engine %s: incoming message send to recipient via channel. All done.", me.Creator)
 
 			case cmd := <-me.CmdChan:
 				fmt.Printf("MQTT Engine %s: %s command received\n", me.Creator, cmd.Cmd)
@@ -607,6 +615,10 @@ func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
 		return me.TopicData, fmt.Errorf("SubToTopic: unknown mode: %s", mode)
 	}
 
+	if subscriberCh == nil {
+		return me.TopicData, fmt.Errorf("SubToTopic: subscriber channel not specified")
+	}
+
 	if _, exist := me.TopicData[topic]; !exist {
 		me.TopicData[topic] = TopicData{}
 	}
@@ -614,15 +626,15 @@ func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
 
 	tdata.SubMode = mode
 	tdata.Validate = validate
+	tdata.SubscriberCh = subscriberCh
 
 	if validatorkey != nil {
 		tdata.ValidatorKey = validatorkey
-		tdata.SubscriberCh = subscriberCh
 		log.Printf("MQTT Engine %s: added validatorkey for topic %s.", me.Creator, topic)
 	}
 
 	me.TopicData[topic] = tdata
-	log.Printf("MQTT Engine %s: added sub topic %s. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
+	log.Printf("MQTT Engine %s: added sub topic %s (validate %t, mode %s). Engine now has %d topics", me.Creator, topic, validate, mode, len(me.TopicData))
 
 	// does the MqttEngine already have a connection manager (i.e. is it already running)
 	if me.ConnectionManager != nil {
@@ -829,4 +841,19 @@ func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 		PrivKey = tmp
 	}
 	return PrivKey, nil
+}
+
+// MqttTopic returns the MQTT topic for a given common name and viper key.
+// The raw topic is something like "status/up/{EdgeId}/tapir-pop" and is specified in the tapir-pop.yaml
+// config file. The common name is the common name of the TAPIR Edge cert.
+func MqttTopic(commonName string, viperkey string) (string, error) {
+	if viperkey == "" {
+		return "", fmt.Errorf("MQTT topic viperkey not specified")
+	}
+	rawtopic := viper.GetString(viperkey)
+	if rawtopic == "" {
+		return "", fmt.Errorf("MQTT topic not specified in config")
+	}
+	topic := strings.Replace(rawtopic, "{EdgeId}", commonName, -1)
+	return topic, nil
 }

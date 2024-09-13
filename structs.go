@@ -248,17 +248,17 @@ type MqttData struct {
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName             string // must match a defined source
-	Creator             string // "spark"	|| "tapir-cli"
-	MsgType             string // "observation", "reset", "global-config"...
-	ListType            string // "{white|black|grey}list"
-	Added               []Domain
-	Removed             []Domain
-	Msg                 string
-	GlobalConfig        GlobalConfig
-	TapirFunctionStatus TapirFunctionStatus
-	TimeStamp           time.Time // time encoded in the payload by the sender, not touched by MQTT
-	TimeStr             string    // time string encoded in the payload by the sender, not touched by MQTTs
+	SrcName  string // must match a defined source
+	Creator  string // "spark"	|| "tapir-cli"
+	MsgType  string // "observation", "reset", "global-config"...
+	ListType string // "{white|black|grey}list"
+	Added    []Domain
+	Removed  []Domain
+	Msg      string
+	//	GlobalConfig        GlobalConfig
+	//	TapirFunctionStatus TapirFunctionStatus
+	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr   string    // time string encoded in the payload by the sender, not touched by MQTT
 }
 
 // Things we need to have in the global config include:
@@ -479,4 +479,14 @@ var StatusToString = map[ComponentStatus]string{
 	StatusWarn:   "warn",
 	StatusFail:   "fail",
 	StatusReport: "report",
+}
+
+type TapirPubKey struct {
+	Pubkey string
+}
+
+type PubKeyUpload struct {
+	JWSMessage    string
+	Signature     string
+	ClientCertPEM string
 }
