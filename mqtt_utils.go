@@ -118,7 +118,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		lg.Printf("WARNING: %s", msg)
 		statusch <- ComponentStatusUpdate{
 			Component: "cert-status",
-			Status:    "warn",
+			Status:    StatusWarn,
 			Msg:       msg,
 			TimeStamp: time.Now(),
 		}
@@ -142,7 +142,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 			lg.Printf("WARNING: %s", msg)
 			statusch <- ComponentStatusUpdate{
 				Component: "cert-status",
-				Status:    "warn",
+				Status:    StatusWarn,
 				Msg:       msg,
 				TimeStamp: time.Now(),
 			}
@@ -371,6 +371,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				td := me.TopicData[outbox.Topic]
 				// signingkey := me.SigningKeys[outbox.Topic]
 				if td.Sign {
+					lg.Printf("MQTT Engine %s: signing message on topic %s", me.Creator, outbox.Topic)
 					signingkey := td.SigningKey
 					if signingkey == nil {
 						lg.Printf("MQTT Engine %s: Danger Will Robinson: signing key for MQTT topic %s not found. Dropping message.",

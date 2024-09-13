@@ -1,6 +1,18 @@
-/*
- * Johan Stenstam, johan.stenstam@internetstiftelsen.se
- */
+//
+// Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tapir
 
 import (
@@ -136,7 +148,7 @@ type DebugPost struct {
 	Qname     string
 	Qtype     uint16
 	Component string
-	Status    string
+	Status    ComponentStatus
 }
 
 type DebugResponse struct {
@@ -265,12 +277,12 @@ type GlobalConfig struct {
 }
 
 type Domain struct {
-	Name      string
-	TimeAdded time.Time
-	//	TTL       time.Duration
-	TTL     int     // in seconds
-	TagMask TagMask // here is the bitfield
-	Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
+	Name         string
+	TimeAdded    time.Time
+	TTL          int     // in seconds
+	TagMask      TagMask // here is the bitfield
+	ExtendedTags []string
+	// Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
 type MqttEngine struct {
@@ -299,7 +311,6 @@ type TopicData struct {
 	Validate     bool   // should incoming messages be validated by the validator key?
 	PubMode      string // "raw" indicates that the data should just be passed through untouched
 	SubMode      string // "raw" indicates that the data should just be passed through untouched
-	// SubscriberCh chan MqttPkg
 	SubscriberCh chan MqttPkgIn
 	PubMsgs      uint32
 	SubMsgs      uint32
@@ -408,7 +419,7 @@ type RpzName struct {
 
 // ComponentStatusUpdate is used to send status updates for a single component of a "function" (tapir-pop, tapir-edm, etc)
 type ComponentStatusUpdate struct {
-	Status    string
+	Status    ComponentStatus
 	Function  string // tapir-pop | tapir-edm | ...
 	Component string // downstream | rpz | mqtt | config | ...
 	Msg       string
@@ -428,24 +439,44 @@ type TapirFunctionStatus struct {
 	Function        string // tapir-pop | tapir-edm | ...
 	FunctionID      string
 	ComponentStatus map[string]TapirComponentStatus // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	//TimeStamps      map[string]time.Time            // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	// Counters        map[string]int                  // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	//ErrorMsgs       map[string]string               // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	NumFailures int
-	LastFailure time.Time
+	NumFailures     int
+	LastFailure     time.Time
 }
 
 // TapirComponentStatus contains the status for a single component of a "function" (tapir-pop, tapir-edm, etc)
 type TapirComponentStatus struct {
-	Component string
-	Status    string // ok | fail | warn
-	ErrorMsg  string
-	Msg       string
-	NumFails  int
-	NumWarns  int
-	//TimeOfFail    time.Time
-	//TimeOfSuccess time.Time
+	Component   string
+	Status      ComponentStatus
+	ErrorMsg    string
+	WarningMsg  string
+	Msg         string
+	NumFails    int
+	NumWarnings int
 	LastFail    time.Time
 	LastWarn    time.Time
 	LastSuccess time.Time
+}
+
+// Status alternatives known to StatusUpdater()
+type ComponentStatus uint8
+
+const (
+	StatusFail ComponentStatus = iota
+	StatusWarn
+	StatusOK
+	StatusReport // Not a component status, but a request for a status report
+)
+
+var StringToStatus = map[string]ComponentStatus{
+	"ok":     StatusOK,
+	"warn":   StatusWarn,
+	"fail":   StatusFail,
+	"report": StatusReport,
+}
+
+var StatusToString = map[ComponentStatus]string{
+	StatusOK:     "ok",
+	StatusWarn:   "warn",
+	StatusFail:   "fail",
+	StatusReport: "report",
 }
