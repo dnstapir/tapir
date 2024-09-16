@@ -435,7 +435,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				}
 				td.SubMsgs++
 				td.LatestSub = time.Now()
-				me.TopicData[inbox.Packet.Topic] = td
+				me.TopicData[td.Topic] = td
 
 				mpi := MqttPkgIn{
 					TimeStamp: time.Now(),
@@ -464,12 +464,6 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 
 					mpi.Validated = true
 					mpi.Payload = payload
-					//					td.SubscriberCh <- MqttDataIn{
-					//						Topic:     inbox.Packet.Topic,
-					//						Payload:   payload,
-					//						Validated: true,
-					//}
-
 				} else {
 					lg.Printf("MQTT Engine %s: unvalidated message: %s", me.Creator, inbox.Packet.Payload)
 				}
@@ -630,12 +624,13 @@ func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
 	}
 
 	if strings.HasSuffix(topic, "/#") {
-		topic = strings.TrimSuffix(topic, "#")
-		me.PrefixTopics[topic] = true
+		me.PrefixTopics[strings.TrimSuffix(topic, "#")] = true
 	}
 
 	if _, exist := me.TopicData[topic]; !exist {
-		me.TopicData[topic] = TopicData{}
+		me.TopicData[topic] = TopicData{
+			Topic: topic,
+		}
 	}
 	tdata := me.TopicData[topic]
 
@@ -663,12 +658,18 @@ func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
 		}); err != nil {
 			return me.TopicData, fmt.Errorf("SubToTopic: failed to subscribe to topic %s: %v", topic, err)
 		}
-		var topics []string
+		var topics, prefixTopics []string
 		for t := range me.TopicData {
 			topics = append(topics, t)
 		}
-		log.Printf("MQTT Engine %s: added topic %s to running MQTT Engine. Engine now has %d topics: %v", me.Creator, topic, len(me.TopicData), topics)
+		for t := range me.PrefixTopics {
+			prefixTopics = append(prefixTopics, t)
+		}
+		log.Printf("MQTT Engine %s: added sub topic %s to running MQTT Engine.", me.Creator, topic)
+		log.Printf("Engine now has %d topics: %v and %d prefix topics: %v", len(me.TopicData), topics, len(me.PrefixTopics), prefixTopics)
 	}
+
+	log.Printf("MQTT Engine %s: TopicData for topic %s: %+v", me.Creator, topic, me.TopicData[topic])
 
 	return me.TopicData, nil
 }
@@ -752,13 +753,13 @@ func (me *MqttEngine) SetupInterruptHandler() {
 
 func (me *MqttEngine) FetchTopicData(topic string) (TopicData, error) {
 	if td, exist := me.TopicData[topic]; exist {
-		log.Printf("MQTT Engine %s: topic %s: exact match found", me.Creator, topic)
+		log.Printf("MQTT Engine %s: topic %s: exact match found. TopicData: %+v", me.Creator, topic, td)
 		return td, nil
 	}
 	for prefix, _ := range me.PrefixTopics {
 		if strings.HasPrefix(topic, prefix) {
-			log.Printf("MQTT Engine %s: topic %s matches prefix %s", me.Creator, topic, prefix)
-			return me.TopicData[prefix], nil
+			log.Printf("MQTT Engine %s: topic %s matches prefix %s. TopicData: %+v", me.Creator, topic, prefix, me.TopicData[prefix])
+			return me.TopicData[prefix+"#"], nil
 		}
 	}
 	return TopicData{}, fmt.Errorf("FetchTopicData: topic %s not found", topic)

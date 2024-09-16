@@ -306,6 +306,7 @@ type MqttEngine struct {
 }
 
 type TopicData struct {
+	Topic        string // topic must be in the TopicData, because sometimes we change it, and we need to keep the TopicData entry.
 	SigningKey   *ecdsa.PrivateKey
 	Sign         bool
 	ValidatorKey *ecdsa.PublicKey
