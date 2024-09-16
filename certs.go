@@ -159,8 +159,15 @@ func FetchTapirClientCert(lg *log.Logger, statusch chan<- ComponentStatusUpdate)
 		}
 		clientCert.Leaf = cert
 	}
+	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):", clientCertFile)
 
-	log.Printf("*** Parsed DNS TAPIR client cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", clientCertFile, clientCert.Leaf.NotBefore, clientCert.Leaf.NotAfter)
+	for _, cert := range clientCert.Certificate {
+		cert, err := x509.ParseCertificate(cert)
+		if err != nil {
+			return "", nil, nil, fmt.Errorf("failed to parse client certificate: %w", err)
+		}
+		log.Printf("*** Subject: %s, Issuer: %s, Not valid after: %v", cert.Subject, cert.Issuer, cert.NotAfter)
+	}
 
 	if clientCert.Leaf.NotAfter.Before(expirationWarningThreshold) {
 		msg := fmt.Sprintf("Client certificate will expire on %v (< %d days away)", clientCert.Leaf.NotAfter.Format(TimeLayout), expirationDays)
@@ -185,7 +192,8 @@ func FetchTapirClientCert(lg *log.Logger, statusch chan<- ComponentStatusUpdate)
 	}
 
 	for _, caCert := range certs {
-		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Cert not valid before: %v\n*** Cert not valid after: %v", cacertFile, caCert.NotBefore, caCert.NotAfter)
+		log.Printf("*** Parsed DNS TAPIR CA cert (from file %s):\n*** Issuer: %s, Subject: %s, Not valid before: %v, Not valid after: %v",
+			cacertFile, caCert.Issuer, caCert.Subject, caCert.NotBefore, caCert.NotAfter)
 		if caCert.NotAfter.Before(expirationWarningThreshold) {
 			msg := fmt.Sprintf("CA certificate with subject %s will expire on %v (< %d days away)", caCert.Subject, caCert.NotAfter.Format(TimeLayout), expirationDays)
 			lg.Printf("WARNING: %s", msg)

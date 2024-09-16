@@ -297,7 +297,8 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkgOut
 	SubscribeChan     chan MqttPkgIn
-	TopicData         map[string]TopicData // map[topic]TemStatus
+	TopicData         map[string]TopicData // map[topic]TopicData
+	PrefixTopics      map[string]bool      // eg. "pubkey/up/" is a prefix topic if we subscribe to pubkey/up/#
 	CanPublish        bool                 // can publish to all topics
 	CanSubscribe      bool                 // can subscribe to all topics
 	Logger            *log.Logger
