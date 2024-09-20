@@ -224,6 +224,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 			OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 				lg.Printf("MQTT Engine %s: MQTT connection up", me.Creator)
 				if subs != nil {
+					lg.Printf("MQTT Engine %s: subscribing to topics: %v", me.Creator, subs)
 					sa, err := cm.Subscribe(context.Background(), &paho.Subscribe{
 						Subscriptions: subs,
 					})
