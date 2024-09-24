@@ -1,12 +1,10 @@
 /*
- * Copyright (c) 2024 DNS TAPIR
+ * Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
  */
 package tapir
 
-import (
 // "github.com/spf13/cobra"
 // "github.com/spf13/viper"
-)
 
 type CliFlags struct {
 	ShowHdr   bool

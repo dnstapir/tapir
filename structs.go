@@ -1,6 +1,18 @@
-/*
- * Johan Stenstam, johan.stenstam@internetstiftelsen.se
- */
+//
+// Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tapir
 
 import (
@@ -136,7 +148,7 @@ type DebugPost struct {
 	Qname     string
 	Qtype     uint16
 	Component string
-	Status    string
+	Status    ComponentStatus
 }
 
 type DebugResponse struct {
@@ -199,7 +211,8 @@ type PingResponse struct {
 	Pongs      int
 }
 
-type MqttPkg struct {
+// MqttPkg is what is sent to the MQTT Engine and returned when an incoming message is parsed.
+type MqttPkgOut struct {
 	Type      string // text | data, only used on sender side
 	Error     bool   // only used for sub.
 	ErrorMsg  string // only used for sub.
@@ -207,22 +220,45 @@ type MqttPkg struct {
 	Topic     string // topic on which this message arrived
 	Retain    bool
 	Data      TapirMsg
+	RawData   interface{} // outgoing data, an unparsed struct
+	TimeStamp time.Time   // time mqtt packet was sent or received, mgmt by MQTT Engine
+}
+
+type MqttPkgIn struct {
+	Type     string // text | data, only used on sender side
+	Error    bool   // only used for sub.
+	ErrorMsg string // only used for sub.
+	Msg      string
+	Topic    string // topic on which this message arrived
+	Retain   bool
+	//	Data      TapirMsg
+	//	RawData   interface{} // outgoing data, an unparsed struct
+	Payload   []byte // incoming data, as received from the network
+	Validated bool
 	TimeStamp time.Time // time mqtt packet was sent or received, mgmt by MQTT Engine
+}
+
+// OBE! MqttData is what is returned from the MQTT Engine for unparsed messages. The payload is left as []byte
+// because it can be of arbitrary type, not just TapirMsg.
+type MqttData struct {
+	Topic     string
+	Payload   []byte
+	Validated bool
 }
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName             string // must match a defined source
-	Creator             string // "spark"	|| "tapir-cli"
-	MsgType             string // "observation", "reset", "global-config"...
-	ListType            string // "{white|black|grey}list"
-	Added               []Domain
-	Removed             []Domain
-	Msg                 string
-	GlobalConfig        GlobalConfig
-	TapirFunctionStatus TapirFunctionStatus
-	TimeStamp           time.Time // time encoded in the payload by the sender, not touched by MQTT
-	TimeStr             string    // time string encoded in the payload by the sender, not touched by MQTTs
+	SrcName  string // must match a defined source
+	Creator  string // "spark"	|| "tapir-cli"
+	MsgType  string // "observation", "reset", "global-config"...
+	ListType string // "{white|black|grey}list"
+	Added    []Domain
+	Removed  []Domain
+	Msg      string
+	//	GlobalConfig        GlobalConfig
+	//	TapirFunctionStatus TapirFunctionStatus
+	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStr   string    // time string encoded in the payload by the sender, not touched by MQTT
 }
 
 // Things we need to have in the global config include:
@@ -241,44 +277,43 @@ type GlobalConfig struct {
 }
 
 type Domain struct {
-	Name      string
-	TimeAdded time.Time
-	//	TTL       time.Duration
-	TTL     int     // in seconds
-	TagMask TagMask // here is the bitfield
-	Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
+	Name         string
+	TimeAdded    time.Time
+	TTL          int     // in seconds
+	TagMask      TagMask // here is the bitfield
+	ExtendedTags []string
+	// Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
 type MqttEngine struct {
-	// Topic    string
-	Creator  string
-	ClientID string
-	Server   string
-	QoS      int
-	//	PrivKey           *ecdsa.PrivateKey
-	//	PubKey            any
+	Creator           string
+	ClientID          string
+	Server            string
+	QoS               int
 	ConnectionManager *autopaho.ConnectionManager
 	ClientCert        tls.Certificate
 	CaCertPool        *x509.CertPool
 	MsgChan           chan paho.PublishReceived
 	CmdChan           chan MqttEngineCmd
-	PublishChan       chan MqttPkg
-	SubscribeChan     chan MqttPkg
-	// SigningKeys       map[string]*ecdsa.PrivateKey // map[topic]*key
-	// ValidatorKeys     map[string]*ecdsa.PublicKey  // map[topic]*key
-	TopicData map[string]TopicData // map[topic]TemStatus
-	// MsgCounters       map[string]uint32            // map[topic]counter
-	//MsgTimeStamps     map[string]time.Time         // map[topic]timestamp
-	CanPublish   bool // can publish to all topics
-	CanSubscribe bool // can subscribe to all topics
-	Logger       *log.Logger
-	Cancel       context.CancelFunc
+	PublishChan       chan MqttPkgOut
+	SubscribeChan     chan MqttPkgIn
+	TopicData         map[string]TopicData // map[topic]TopicData
+	PrefixTopics      map[string]bool      // eg. "pubkey/up/" is a prefix topic if we subscribe to pubkey/up/#
+	CanPublish        bool                 // can publish to all topics
+	CanSubscribe      bool                 // can subscribe to all topics
+	Logger            *log.Logger
+	Cancel            context.CancelFunc
 }
 
 type TopicData struct {
+	Topic        string // topic must be in the TopicData, because sometimes we change it, and we need to keep the TopicData entry.
 	SigningKey   *ecdsa.PrivateKey
+	Sign         bool
 	ValidatorKey *ecdsa.PublicKey
-	SubscriberCh chan MqttPkg
+	Validate     bool   // should incoming messages be validated by the validator key?
+	PubMode      string // "raw" indicates that the data should just be passed through untouched
+	SubMode      string // "raw" indicates that the data should just be passed through untouched
+	SubscriberCh chan MqttPkgIn
 	PubMsgs      uint32
 	SubMsgs      uint32
 	LatestPub    time.Time
@@ -386,7 +421,7 @@ type RpzName struct {
 
 // ComponentStatusUpdate is used to send status updates for a single component of a "function" (tapir-pop, tapir-edm, etc)
 type ComponentStatusUpdate struct {
-	Status    string
+	Status    ComponentStatus
 	Function  string // tapir-pop | tapir-edm | ...
 	Component string // downstream | rpz | mqtt | config | ...
 	Msg       string
@@ -406,24 +441,54 @@ type TapirFunctionStatus struct {
 	Function        string // tapir-pop | tapir-edm | ...
 	FunctionID      string
 	ComponentStatus map[string]TapirComponentStatus // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	//TimeStamps      map[string]time.Time            // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	// Counters        map[string]int                  // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	//ErrorMsgs       map[string]string               // downstreamnotify | downstreamixfr | rpzupdate | mqttmsg | config | ...
-	NumFailures int
-	LastFailure time.Time
+	NumFailures     int
+	LastFailure     time.Time
 }
 
 // TapirComponentStatus contains the status for a single component of a "function" (tapir-pop, tapir-edm, etc)
 type TapirComponentStatus struct {
-	Component string
-	Status    string // ok | fail | warn
-	ErrorMsg  string
-	Msg       string
-	NumFails  int
-	NumWarns  int
-	//TimeOfFail    time.Time
-	//TimeOfSuccess time.Time
+	Component   string
+	Status      ComponentStatus
+	ErrorMsg    string
+	WarningMsg  string
+	Msg         string
+	NumFails    int
+	NumWarnings int
 	LastFail    time.Time
 	LastWarn    time.Time
 	LastSuccess time.Time
+}
+
+// Status alternatives known to StatusUpdater()
+type ComponentStatus uint8
+
+const (
+	StatusFail ComponentStatus = iota
+	StatusWarn
+	StatusOK
+	StatusReport // Not a component status, but a request for a status report
+)
+
+var StringToStatus = map[string]ComponentStatus{
+	"ok":     StatusOK,
+	"warn":   StatusWarn,
+	"fail":   StatusFail,
+	"report": StatusReport,
+}
+
+var StatusToString = map[ComponentStatus]string{
+	StatusOK:     "ok",
+	StatusWarn:   "warn",
+	StatusFail:   "fail",
+	StatusReport: "report",
+}
+
+type TapirPubKey struct {
+	Pubkey string
+}
+
+type PubKeyUpload struct {
+	JWSMessage    string
+	Signature     string
+	ClientCertPEM string
 }
