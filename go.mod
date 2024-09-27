@@ -4,6 +4,7 @@ go 1.21.0
 
 require (
 	github.com/eclipse/paho.golang v0.21.0
+	github.com/gookit/goutil v0.6.16
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/miekg/dns v1.1.57
 	github.com/ryanuber/columnize v2.1.2+incompatible
@@ -17,7 +18,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gookit/color v1.5.4 // indirect
-	github.com/gookit/goutil v0.6.16 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
