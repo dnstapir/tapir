@@ -1,4 +1,4 @@
-module github.com/dnstapir/tapir-em/tapir
+module github.com/dnstapir/tapir
 
 go 1.21.0
 
