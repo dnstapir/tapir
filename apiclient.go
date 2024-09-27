@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2024  DNS TAPIR
- *
+ * Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
  */
 package tapir
 
@@ -160,11 +159,6 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 	if err != nil {
 		return fmt.Errorf("error reading CA file '%s': %v", cacert, err)
 	}
-	//	roots := x509.NewCertPool()
-	//	ok := roots.AppendCertsFromPEM(caCertPEM)
-	//	if !ok {
-	//		log.Printf("Error parsing root cert: %v\n", err)
-	//	}
 
 	client = &http.Client{
 		Transport: &http.Transport{

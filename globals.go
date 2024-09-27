@@ -1,10 +1,8 @@
 /*
  * Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
  */
-package tapir
 
-// "github.com/spf13/cobra"
-// "github.com/spf13/viper"
+package tapir
 
 type CliFlags struct {
 	ShowHdr   bool

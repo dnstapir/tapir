@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 DNS TAPIR
+ * Copyright (c) 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
  */
 package tapir
 
@@ -24,9 +24,6 @@ const (
 )
 
 // TODO: Add support for TSIG zone transfers.
-
-// keepfunc(rrtype) is a predicate that is used to decide whether to include a particular
-// RRtype in the resulting, kept, zonedata. Used to filter out DNSSEC RRs if needed.
 
 func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string) (uint32, error) {
 
@@ -76,8 +73,6 @@ func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string)
 		}
 	}
 
-	//	zd.Logger.Printf("ZoneTransferIn: %s: dropped %d RRs (filter), kept %d apex RRs + %d BodyRRs",
-	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.BodyRRs))
 	zd.Logger.Printf("ZoneTransferIn: %s: dropped %d RRs (filter), kept %d apex RRs",
 		zd.ZoneName, zd.DroppedRRs, zd.ApexLen)
 
@@ -138,12 +133,8 @@ func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
 
 	zd.ComputeIndices() // for zonetype 3, otherwise no-op
 
-	// fmt.Printf("ReadZoneFile: Size: zoneparser: %d zd.RRs: %d\n", size.Of(zp), size.Of(zd.RRs))
-
 	zd.XfrType = "axfr" // XXX: technically not true, but the distinction is between complete zone and "diff"
 
-	//	zd.Logger.Printf("ReadZoneFile: %s: dropped %d RRs (filter), kept %d apex RRs + %d BodyRRs",
-	//		zd.ZoneName, zd.DroppedRRs, zd.ApexLen, len(zd.BodyRRs))
 	zd.Logger.Printf("ReadZoneFile: %s: dropped %d RRs (filter), kept %d apex RRs",
 		zd.ZoneName, zd.DroppedRRs, zd.ApexLen)
 
@@ -187,10 +178,8 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 			zd.ApexLen++
 		}
 		tmp = odmap.RRtypes[rrtype]
-		// zd.Logger.Printf("RRSortFunc: odmap.RRtypes: %v", odmap.RRtypes)
 		tmp.RRs = append(tmp.RRs, rr)
 		odmap.RRtypes[rrtype] = tmp
-		// odmap.RRtypes[rrtype].RRs = append(odmap.RRtypes[rrtype].RRs, rr)
 	case *dns.NS:
 		if owner == zd.ZoneName {
 			zd.NSrrs = append(zd.NSrrs, rr)
@@ -198,23 +187,19 @@ func (zd *ZoneData) RRSortFunc(rr dns.RR, first_soa *dns.SOA) {
 			tmp = odmap.RRtypes[rrtype]
 			tmp.RRs = append(tmp.RRs, rr)
 			odmap.RRtypes[rrtype] = tmp
-			// odmap.RRtypes[rrtype].RRs = append(odmap.RRtypes[rrtype].RRs, rr)
 		} else {
 			tmp = odmap.RRtypes[rrtype]
 			tmp.RRs = append(tmp.RRs, rr)
 			odmap.RRtypes[rrtype] = tmp
-			// odmap.RRtypes[rrtype].RRs = append(odmap.RRtypes[rrtype].RRs, rr)
 		}
 	case *dns.RRSIG, *dns.NSEC, *dns.NSEC3, *dns.NSEC3PARAM, *dns.CDS, *dns.CDNSKEY, *dns.DNSKEY:
 		// ignore
 
 	default:
-		// log.Printf("RRSortFunc: owner=%s, rrtype=%s", owner, dns.TypeToString[rrtype])
 		tmp = odmap.RRtypes[rrtype]
 		tmp.RRs = append(tmp.RRs, rr)
 		odmap.RRtypes[rrtype] = tmp
 	}
-	// zd.Logger.Printf("ZoneName: %s, zonetype: %d", zd.ZoneName, zd.ZoneType)
 	zd.Data[owner] = odmap
 }
 
@@ -264,7 +249,6 @@ func (zd *ZoneData) WriteZoneToFile(f *os.File) error {
 			}
 			totalbytes += bytes
 			bytes = 0
-			// fmt.Printf("Size(zonedata): %d\n", size.Of(zonedata))
 			zonedata = ""
 		}
 	}
@@ -273,7 +257,6 @@ func (zd *ZoneData) WriteZoneToFile(f *os.File) error {
 		return err
 	}
 	totalbytes += bytes
-	// fmt.Printf("Size(zonedata): %d\n", size.Of(zonedata))
 	writer.Flush()
 
 	return err
@@ -319,9 +302,6 @@ func (zd *ZoneData) ComputeIndices() {
 		soas.RRs = soas.RRs[:1]
 		zd.Owners[zd.OwnerIndex[zd.ZoneName]].RRtypes[dns.TypeSOA] = soas
 	}
-	// if zd.Debug {
-	//		zd.PrintOwners()
-	//	}
 }
 
 func (zd *ZoneData) PrintRRs() {

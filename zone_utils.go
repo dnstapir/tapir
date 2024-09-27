@@ -1,20 +1,7 @@
-// Copyright 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 /*
- * Johan Stenstam, johan.stenstam@internetstiftelsen.se
+ * Copyright 2024 Johan Stenstam, johan.stenstam@internetstiftelsen.se
  */
+
 package tapir
 
 import (
@@ -133,16 +120,9 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	zd.Data = zonedata.Data
 	//	zd.RpzData = zonedata.RpzData
 
-	// XXX: This isn't exactly safe (as there may be multiple ongoing requests),
-	// but for the limited test case we have it should work.
-
-	// Zones[zd.ZoneName] = zonedata
-
 	return nil
 }
 
-// zd.Sync() is used to ensure that the data in zd.SOA, zd.NSrrs, etc is reflected in the zd.RRs slice.
-// Typically used in preparation for a ZONEMD computation or an outbound zone transfer.
 func (zd *ZoneData) Sync() error {
 	log.Printf("zd.Sync(): pre sync: there are %d RRs in BodyRRs and %d RRs in RRs",
 		len(zd.BodyRRs), len(zd.RRs))
@@ -151,9 +131,6 @@ func (zd *ZoneData) Sync() error {
 
 	switch zd.ZoneType {
 	case RpzZone:
-		//	     rrs = []dns.RR{dns.RR(&zd.SOA)}
-		//	     rrs = append(rrs, zd.NSrrs...)
-		//	     rrs = append(rrs, body_rrs...)
 	case SliceZone:
 		for _, odmap := range zd.Data {
 			for _, rrl := range odmap.RRtypes {
@@ -165,8 +142,6 @@ func (zd *ZoneData) Sync() error {
 	}
 
 	zd.RRs = rrs
-	// log.Printf("zd.Sync(): post sync: there are %d RRs in BodyRRs and %d RRs in RRs",
-	//			    len(zd.BodyRRs), len(zd.RRs))
 	return nil
 }
 
