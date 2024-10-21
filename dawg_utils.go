@@ -5,13 +5,13 @@ package tapir
 
 import (
 	"bufio"
-	"fmt"
-	"os"
-
 	"encoding/csv"
+	"fmt"
 	"io"
 	"log"
+	"os"
 	"slices"
+	"strings"
 
 	"github.com/miekg/dns"
 
@@ -53,7 +53,6 @@ func ParseCSV(srcfile string, dstmap map[string]TapirName, dontsort bool) ([]str
 		if dontsort {
 			dstmap[name] = TapirName{Name: name}
 		} else {
-
 			// Make sure the domain is fully qualified (includes
 			// the root domain dot at the end) as this is expected
 			// by miekg/dns when comparing against a dns question
@@ -113,7 +112,7 @@ func CreateDawg(sortedDomains []string, outfile string) error {
 	fmt.Printf("Creating DAWG data structure\n")
 	dawg := dawg.New()
 	for _, domain := range sortedDomains {
-		dawg.Add(domain)
+		dawg.Add(strings.ToLower(domain))
 		if GlobalCF.Debug {
 			fmt.Printf("Added \"%s\" to DAWG\n", domain)
 		}
