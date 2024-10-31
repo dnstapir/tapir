@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-    "strings"
 	"time"
 
 	"github.com/dnstapir/tapir"
@@ -50,42 +49,6 @@ var debugZoneDataCmd = &cobra.Command{
 		//			len(zd.RRs), len(zd.Owners))
 		if resp.Msg != "" {
 			fmt.Printf("%s\n", resp.Msg)
-		}
-	},
-}
-
-var debugColourlistsCmd = &cobra.Command{
-	Use:   "colourlists",
-	Short: "Return the white/black/greylists from the current data structures",
-	Run: func(cmd *cobra.Command, args []string) {
-		resp := SendDebugCmd(tapir.DebugPost{
-			Command: "colourlists",
-		})
-		if resp.Error {
-			fmt.Printf("%s\n", resp.ErrorMsg)
-		}
-        fmtstring := "%-35s|%-20s|%-10s|%-10s\n"
-
-		//		fmt.Printf("Received %d bytes of data\n", len(resp.Msg))
-
-        // print the column headings
-        fmt.Printf(fmtstring, "Domain", "Source", "Src Fmt", "Colour")
-        fmt.Println(strings.Repeat("-", 78)) // A nice ruler over the data rows
-
-		for _, l := range resp.Lists["whitelist"] {
-            for _, n := range l.Names {
-                fmt.Printf(fmtstring, n.Name, l.Name, "-", "white")
-            }
-		}
-		for _, l := range resp.Lists["blacklist"] {
-            for _, n := range l.Names {
-                fmt.Printf(fmtstring, n.Name, l.Name, "-", "black")
-            }
-		}
-		for _, l := range resp.Lists["greylist"] {
-            for _, n := range l.Names {
-                fmt.Printf(fmtstring, n.Name, l.Name, l.SrcFormat, "grey")
-            }
 		}
 	},
 }
@@ -390,7 +353,7 @@ var debugImportGreylistCmd = &cobra.Command{
 }
 
 func init() {
-	DebugCmd.AddCommand(debugSyncZoneCmd, debugZoneDataCmd, debugColourlistsCmd, debugGenRpzCmd)
+	DebugCmd.AddCommand(debugSyncZoneCmd, debugZoneDataCmd, debugGenRpzCmd)
 	DebugCmd.AddCommand(debugMqttStatsCmd, debugReaperStatsCmd)
 	DebugCmd.AddCommand(debugImportGreylistCmd, debugGreylistStatusCmd)
 	DebugCmd.AddCommand(debugGenerateSchemaCmd, debugUpdatePopStatusCmd)
