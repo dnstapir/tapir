@@ -255,14 +255,22 @@ type TapirMsg struct {
 // - number of RRs to send in a dns.Envelope{}
 type GlobalConfig struct {
 	TapirConfigVersion string
-	Rpz                struct {
+	Rpz struct {
 		EnvelopeSize int // Number of dns.RRs per zone transfer envelope
 	}
 	Bootstrap struct {
 		Servers []string
 		BaseUrl string
-		ApiKey  string
+		ApiToken string
 	}
+    ObservationTopics []GlobalConfigTopic
+    StatusTopics []GlobalConfigTopic
+}
+
+type GlobalConfigTopic struct {
+    Topic string       // Topic to subscribe (down) or publish (up) on
+    PubKeyName string  // Set when sending a validation key, unset otherwise
+    PrivKeyName string // Set when sending a signing key, unset otherwise
 }
 
 type Domain struct {
@@ -321,13 +329,16 @@ type MqttEngineResponse struct {
 
 type MqttDetails struct {
 	ValidatorKeys map[string]*ecdsa.PublicKey // map[topic]*key
+	Bootstrap    []string
+	BootstrapUrl string
+	BootstrapKey string
 }
 
 type WBGlist struct {
 	Name        string
 	Description string
 	Type        string // whitelist | blacklist | greylist
-	//	Mutable     bool   // true = is possible to update. Only local text file sources are mutable
+	Immutable   bool   // true = won't be updated by globalconfig topic.
 	SrcFormat   string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
 	Format      string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
 	Datasource  string // file | xfr | mqtt | https | api | ...
