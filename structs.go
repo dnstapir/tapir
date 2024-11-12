@@ -283,6 +283,7 @@ type Domain struct {
 }
 
 type MqttEngine struct {
+     	Running		  bool
 	Creator           string
 	ClientID          string
 	Server            string
