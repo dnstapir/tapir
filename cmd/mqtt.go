@@ -32,11 +32,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var mqttclientid, mqtttopic, defaulttopic, mqttgreylist, gcfgfile string
-
 var (
-	mqttfid                                       string
-	mqttpub, mqttsub, mqttretain, mqttconfigclear bool
+	mqttclientid, mqtttopic, defaulttopic, mqttgreylist, gcfgfile, mqttfid string
+	mqttpub, mqttsub, mqttretain, mqttconfigclear                          bool
 )
 
 var MqttCmd = &cobra.Command{
