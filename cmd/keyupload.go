@@ -6,11 +6,10 @@ package cmd
 import (
 	"crypto/sha256"
 	"encoding/pem"
-	"path/filepath"
-
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/dnstapir/tapir"
@@ -30,7 +29,7 @@ var KeyUploadCmd = &cobra.Command{
 		//			log.Fatal("keyupload must have exactly one argument: the path to the public key file")
 		//		}
 
-		var statusch = make(chan tapir.ComponentStatusUpdate, 10)
+		statusch := make(chan tapir.ComponentStatusUpdate, 10)
 
 		// If any status updates arrive, print them out
 		go func() {

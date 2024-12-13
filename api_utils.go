@@ -16,7 +16,6 @@ var pongs int = 0
 
 func APIping(appName string, boottime time.Time) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		tls := ""
 		if r.TLS != nil {
 			tls = "TLS "

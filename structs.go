@@ -255,22 +255,22 @@ type TapirMsg struct {
 // - number of RRs to send in a dns.Envelope{}
 type GlobalConfig struct {
 	TapirConfigVersion string
-	Rpz struct {
+	Rpz                struct {
 		EnvelopeSize int // Number of dns.RRs per zone transfer envelope
 	}
 	Bootstrap struct {
-		Servers []string
-		BaseUrl string
+		Servers  []string
+		BaseUrl  string
 		ApiToken string
 	}
-    ObservationTopics []GlobalConfigTopic
-    StatusTopics []GlobalConfigTopic
+	ObservationTopics []GlobalConfigTopic
+	StatusTopics      []GlobalConfigTopic
 }
 
 type GlobalConfigTopic struct {
-    Topic string       // Topic to subscribe (down) or publish (up) on
-    PubKeyName string  // Set when sending a validation key, unset otherwise
-    PrivKeyName string // Set when sending a signing key, unset otherwise
+	Topic       string // Topic to subscribe (down) or publish (up) on
+	PubKeyName  string // Set when sending a validation key, unset otherwise
+	PrivKeyName string // Set when sending a signing key, unset otherwise
 }
 
 type Domain struct {
@@ -283,7 +283,7 @@ type Domain struct {
 }
 
 type MqttEngine struct {
-     	Running		  bool
+	Running           bool
 	Creator           string
 	ClientID          string
 	Server            string
@@ -330,9 +330,9 @@ type MqttEngineResponse struct {
 
 type MqttDetails struct {
 	ValidatorKeys map[string]*ecdsa.PublicKey // map[topic]*key
-	Bootstrap    []string
-	BootstrapUrl string
-	BootstrapKey string
+	Bootstrap     []string
+	BootstrapUrl  string
+	BootstrapKey  string
 }
 
 type WBGlist struct {

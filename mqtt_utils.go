@@ -176,7 +176,8 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 						// lg.Printf("received message on topic %s; body: %s (retain: %t)\n", pr.Packet.Topic, pr.Packet.Payload, pr.Packet.Retain)
 						me.MsgChan <- pr
 						return true, nil
-					}},
+					},
+				},
 				OnClientError: func(err error) { lg.Printf("client error: %s\n", err) },
 				OnServerDisconnect: func(d *paho.Disconnect) {
 					if d.Properties != nil {
@@ -411,7 +412,8 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 }
 
 func (me *MqttEngine) xxxPubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey,
-	subscriberCh chan MqttPkgIn, mode string, validate bool) (map[string]TopicData, error) {
+	subscriberCh chan MqttPkgIn, mode string, validate bool,
+) (map[string]TopicData, error) {
 	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic == "" {
 		return me.TopicData, fmt.Errorf("PubSubToTopic: topic not specified")
@@ -423,7 +425,7 @@ func (me *MqttEngine) xxxPubSubToTopic(topic string, signingkey *ecdsa.PrivateKe
 	if mode != "raw" && mode != "struct" {
 		return me.TopicData, fmt.Errorf("PubSubToTopic: unknown mode: %s", mode)
 	}
-	var tdata = TopicData{
+	tdata := TopicData{
 		SubMode:  mode,
 		Validate: validate,
 	}
@@ -494,7 +496,8 @@ func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mod
 }
 
 func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
-	subscriberCh chan MqttPkgIn, mode string, validate bool) (map[string]TopicData, error) {
+	subscriberCh chan MqttPkgIn, mode string, validate bool,
+) (map[string]TopicData, error) {
 	log.Printf("MQTT Engine: SubToTopic: topic %s, validatorkey %v, subscriberCh %v, mode %s, validate %t", topic, validatorkey, subscriberCh, mode, validate)
 	if topic == "" {
 		return me.TopicData, fmt.Errorf("SubToTopic: topic not specified")
@@ -639,7 +642,7 @@ func (me *MqttEngine) FetchTopicData(topic string) (TopicData, error) {
 		log.Printf("MQTT Engine %s: topic %s: exact match found. TopicData: %+v", me.Creator, topic, td)
 		return td, nil
 	}
-	for prefix, _ := range me.PrefixTopics {
+	for prefix := range me.PrefixTopics {
 		if strings.HasPrefix(topic, prefix) {
 			log.Printf("MQTT Engine %s: topic %s matches prefix %s. TopicData: %+v", me.Creator, topic, prefix, me.TopicData[prefix])
 			return me.TopicData[prefix+"#"], nil

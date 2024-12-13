@@ -169,7 +169,7 @@ func SloggerApi() (*tapir.ApiClient, error) {
 		return nil, fmt.Errorf("Error: missing config key: %s", urlkey)
 	}
 
-    api := &tapir.ApiClient{
+	api := &tapir.ApiClient{
 		BaseUrl:    baseurl,
 		ApiKey:     viper.GetString("cli." + servername + ".apikey"),
 		AuthMethod: "X-API-Key",
@@ -200,7 +200,6 @@ func SloggerApi() (*tapir.ApiClient, error) {
 }
 
 func SendSloggerCommand(data tapir.SloggerCmdPost) tapir.SloggerCmdResponse {
-
 	api, err := SloggerApi()
 	if err != nil {
 		log.Fatalf("Error: Could not set up API client to TAPIR-SLOGGER: %v", err)

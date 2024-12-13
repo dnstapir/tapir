@@ -11,7 +11,6 @@ import (
 )
 
 func SetupLogging(logfile string) error {
-
 	if logfile != "" {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   logfile,
