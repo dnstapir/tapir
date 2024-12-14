@@ -26,9 +26,11 @@ const (
 	Frotz
 )
 
-var DefinedTags = []string{"newname", "highvolume", "badip", "cdntracker", "likelymalware", "likelybotnetcc",
+var DefinedTags = []string{
+	"newname", "highvolume", "badip", "cdntracker", "likelymalware", "likelybotnetcc",
 	// "childporn",
-	"foo", "bar", "baz", "gazonk", "frotz"}
+	"foo", "bar", "baz", "gazonk", "frotz",
+}
 
 func SetTag(b, tag TagMask) TagMask    { return b | tag }
 func ClearTag(b, tag TagMask) TagMask  { return b &^ tag }

@@ -26,7 +26,6 @@ const (
 // TODO: Add support for TSIG zone transfers.
 
 func (zd *ZoneData) ZoneTransferIn(upstream string, serial uint32, ttype string) (uint32, error) {
-
 	if upstream == "" {
 		log.Fatalf("ZoneTransfer: upstream not set")
 	}
@@ -110,7 +109,6 @@ func (zd *ZoneData) ReadZoneString(s string) (uint32, error) {
 }
 
 func (zd *ZoneData) ReadZone(r io.Reader) (uint32, error) {
-
 	switch zd.ZoneType {
 	case MapZone, SliceZone, RpzZone:
 		// zd.Data = make(map[string]map[uint16][]dns.RR, 30)

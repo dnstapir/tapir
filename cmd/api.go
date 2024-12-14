@@ -7,8 +7,8 @@ package cmd
 import (
 	"log"
 
-	"github.com/spf13/cobra"
 	"github.com/dnstapir/tapir"
+	"github.com/spf13/cobra"
 )
 
 var ApiCmd = &cobra.Command{

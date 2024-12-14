@@ -57,7 +57,6 @@ func NewServerConfig(caFile string, clientAuth tls.ClientAuthType) (*tls.Config,
 }
 
 func NewClientConfig(caFile, keyFile, certFile string) (*tls.Config, error) {
-
 	caCertPool, err := loadCertPool(caFile)
 	if err != nil {
 		return nil, err

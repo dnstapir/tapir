@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-
 	"fmt"
 	"io"
 	"log"
@@ -46,7 +45,7 @@ func (api *ApiClient) Setup() error {
 	api.Verbose = GlobalCF.Verbose
 	api.Debug = GlobalCF.Debug
 
-	var protocol = "http"
+	protocol := "http"
 
 	if api.BaseUrl == "" {
 		return fmt.Errorf("baseUrl not defined. Abort")
@@ -112,7 +111,7 @@ func (api *ApiClient) SetupTLS(tlsConfig *tls.Config) error {
 	api.Verbose = GlobalCF.Verbose
 	api.Debug = GlobalCF.Debug
 
-	var protocol = "https"
+	protocol := "https"
 
 	if api.BaseUrl == "" {
 		return fmt.Errorf("baseUrl not defined. Abort")
@@ -239,7 +238,6 @@ func (api *ApiClient) RequestNG(method, endpoint string, data interface{}, dieOn
 	}
 	// log.Printf("api.RequestNG: api: %+v req: %+v", api, req)
 	resp, err := api.HttpClient.Do(req)
-
 	if err != nil {
 		if api.Debug {
 			fmt.Printf("api.RequestNG: %s %s dieOnError: %v err: %v\n", method, endpoint, dieOnError, err)

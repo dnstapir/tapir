@@ -115,7 +115,6 @@ var RpzListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Instruct TAPIR-POP to remove a rule from the RPZ zone",
 	Run: func(cmd *cobra.Command, args []string) {
-
 		resp := SendCommandCmd(tapir.CommandPost{
 			Command: "rpz-list-sources",
 		})

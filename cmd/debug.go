@@ -89,7 +89,7 @@ var debugMqttStatsCmd = &cobra.Command{
 			fmt.Printf("%s\n", resp.Msg)
 		}
 
-		var out = []string{"MQTT Topic|Msgs|Last MQTT Message|Time since last msg"}
+		out := []string{"MQTT Topic|Msgs|Last MQTT Message|Time since last msg"}
 		for topic, count := range resp.MqttStats.MsgCounters {
 			t := resp.MqttStats.MsgTimeStamps[topic]
 			out = append(out, fmt.Sprintf("%s|%d|%s|%v\n", topic, count, t.Format(timelayout), time.Since(t).Round(time.Second)))
@@ -248,7 +248,6 @@ var debugGenerateSchemaCmd = &cobra.Command{
 	Use:   "generate-schema",
 	Short: "Experimental: Generate the JSON schema for the current data structures",
 	Run: func(cmd *cobra.Command, args []string) {
-
 		reflector := &jsonschema.Reflector{
 			DoNotReference: true,
 		}
@@ -274,7 +273,6 @@ var debugImportGreylistCmd = &cobra.Command{
 	Use:   "import-greylist",
 	Short: "Import the current data for the named greylist from the TEM bootstrap server",
 	Run: func(cmd *cobra.Command, args []string) {
-
 		if Listname == "" {
 			fmt.Printf("No greylist name specified, using 'dns-tapir'\n")
 			Listname = "dns-tapir"

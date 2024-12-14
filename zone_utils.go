@@ -79,7 +79,6 @@ func (zd *ZoneData) DoTransfer(upstream string) (bool, uint32, uint32, error) {
 }
 
 func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, verbose bool) error {
-
 	log.Printf("Transferring zone %s via AXFR from %s\n", zd.ZoneName, upstream)
 
 	zonedata := ZoneData{
@@ -126,7 +125,7 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 func (zd *ZoneData) Sync() error {
 	log.Printf("zd.Sync(): pre sync: there are %d RRs in BodyRRs and %d RRs in RRs",
 		len(zd.BodyRRs), len(zd.RRs))
-	var rrs = []dns.RR{dns.RR(&zd.SOA)}
+	rrs := []dns.RR{dns.RR(&zd.SOA)}
 	rrs = append(rrs, zd.NSrrs...)
 
 	switch zd.ZoneType {

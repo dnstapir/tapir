@@ -31,5 +31,3 @@ var BumpCmd = &cobra.Command{
 func init() {
 	BumpCmd.Flags().StringVarP(&tapir.GlobalCF.Zone, "zone", "z", "", "Zone name")
 }
-
-

@@ -9,15 +9,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
-	"net/http"
-	"path/filepath"
-	"regexp"
-
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,10 +32,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var mqttclientid, mqtttopic, defaulttopic, mqttgreylist, gcfgfile string
-
-var mqttfid string
-var mqttpub, mqttsub, mqttretain, mqttconfigclear bool
+var (
+	mqttclientid, mqtttopic, defaulttopic, mqttgreylist, gcfgfile, mqttfid string
+	mqttpub, mqttsub, mqttretain, mqttconfigclear                          bool
+)
 
 var MqttCmd = &cobra.Command{
 	Use:   "mqtt",
@@ -52,7 +51,7 @@ The engine can be configured to publish to and subscribe from the tapir config, 
 	Run: func(cmd *cobra.Command, args []string) {
 		var wg sync.WaitGroup
 
-		var statusch = make(chan tapir.ComponentStatusUpdate, 10)
+		statusch := make(chan tapir.ComponentStatusUpdate, 10)
 
 		// If any status updates arrive, print them out
 		go func() {
@@ -81,8 +80,8 @@ The engine can be configured to publish to and subscribe from the tapir config, 
 			os.Exit(1)
 		}
 
-		var canPub = true
-		var canSub = true
+		canPub := true
+		canSub := true
 		var signkey *ecdsa.PrivateKey
 		var valkey *ecdsa.PublicKey
 
@@ -274,8 +273,7 @@ var mqttTapirConfigCmd = &cobra.Command{
 	If -R is specified, will send a retained message, otherwise will send a normal message.
 	If -C is specified, will clear the retained config message, otherwise will send the new config.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		var statusch = make(chan tapir.ComponentStatusUpdate, 10)
+		statusch := make(chan tapir.ComponentStatusUpdate, 10)
 
 		// If any status updates arrive, print them out
 		go func() {
@@ -387,8 +385,7 @@ var mqttTapirObservationsCmd = &cobra.Command{
 	Long: `Will query for operation (add|del|show|send|set-ttl|list-tags|quit), domain name and tags.
 Will end the loop on the operation (or domain name) "QUIT"`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		var statusch = make(chan tapir.ComponentStatusUpdate, 10)
+		statusch := make(chan tapir.ComponentStatusUpdate, 10)
 
 		// If any status updates arrive, print them out
 		go func() {
@@ -439,7 +436,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 		}
 
 		var op, names, tags string
-		var tmsg = tapir.TapirMsg{
+		tmsg := tapir.TapirMsg{
 			SrcName:   srcname,
 			Creator:   "tapir-cli",
 			MsgType:   "observation",
@@ -450,7 +447,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 		var snames []string
 		var tagmask tapir.TagMask
 
-		var ops = []string{"add", "del", "show", "send", "set-ttl", "list-tags", "quit"}
+		ops := []string{"add", "del", "show", "send", "set-ttl", "list-tags", "quit"}
 		fmt.Printf("Defined operations are: %v\n", ops)
 
 		var tds []tapir.Domain
@@ -513,7 +510,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 				tds = []tapir.Domain{}
 
 			case "show":
-				var out = []string{"Domain|Tags"}
+				out := []string{"Domain|Tags"}
 				for _, td := range tmsg.Added {
 					out = append(out, fmt.Sprintf("ADD: %s|%032b", td.Name, td.TagMask))
 				}
@@ -523,7 +520,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 				fmt.Println(columnize.SimpleFormat(out))
 
 			case "list-tags":
-				var out = []string{"Name|Bit"}
+				out := []string{"Name|Bit"}
 				var tagmask tapir.TagMask
 				for _, t := range tapir.DefinedTags {
 					tagmask, _ = tapir.StringsToTagMask([]string{t})
@@ -565,8 +562,7 @@ var mqttTapirStatusCmd = &cobra.Command{
 	Long: `Will query for operation (add|del|show|send|set-ttl|list-tags|quit), component name and status.
 Will end the loop on the operation (or component name) "QUIT"`,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		var statusch = make(chan tapir.ComponentStatusUpdate, 10)
+		statusch := make(chan tapir.ComponentStatusUpdate, 10)
 
 		// If any status updates arrive, print them out
 		go func() {
@@ -618,7 +614,7 @@ Will end the loop on the operation (or component name) "QUIT"`,
 		//			TimeStamp: time.Now(),
 		//		}
 
-		var ops = []string{"add", "del", "show", "send", "set-ttl", "list-tags", "quit"}
+		ops := []string{"add", "del", "show", "send", "set-ttl", "list-tags", "quit"}
 		fmt.Printf("Defined operations are: %v\n", ops)
 
 		tfs := tapir.TapirFunctionStatus{
@@ -700,7 +696,7 @@ Will end the loop on the operation (or component name) "QUIT"`,
 				tfs.ComponentStatus[cname] = comp
 
 			case "show":
-				var out = []string{"Component|Status|ErrorMsg|Msg|NumFailures|LastFailure|LastSuccess"}
+				out := []string{"Component|Status|ErrorMsg|Msg|NumFailures|LastFailure|LastSuccess"}
 				for cname, comp := range tfs.ComponentStatus {
 					out = append(out, fmt.Sprintf("%s|%s|%s|%s|%d|%s|%s", cname, tapir.StatusToString[comp.Status], comp.ErrorMsg, comp.Msg, comp.NumFails,
 						comp.LastFail.Format(tapir.TimeLayout), comp.LastSuccess.Format(tapir.TimeLayout)))
@@ -1035,7 +1031,6 @@ func SetupInterruptHandler(cmnder chan tapir.MqttEngineCmd) {
 	go func() {
 		for {
 			select {
-
 			case <-ic:
 				fmt.Println("SIGTERM interrupt received, sending stop signal to MQTT Engine")
 				cmnder <- tapir.MqttEngineCmd{Cmd: "stop", Resp: respch}

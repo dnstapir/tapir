@@ -27,7 +27,6 @@ func (array RRArray) Swap(i, j int) {
 
 // Less returns true if the element in the position i of RRArray is less than the element in position j of RRArray.
 func (array RRArray) Less(i, j int) bool {
-
 	// RR Canonical order:
 	// 1.- Canonical Owner Name (RFC 3034 6.1)
 	// 2.- RR Class
@@ -58,7 +57,6 @@ func (array RRArray) Less(i, j int) bool {
 	} else {
 		return compareRRData(array[i], array[j])
 	}
-
 }
 
 func compareRRData(rri, rrj dns.RR) bool {
