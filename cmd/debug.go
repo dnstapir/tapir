@@ -55,7 +55,7 @@ var debugZoneDataCmd = &cobra.Command{
 
 var debugGenRpzCmd = &cobra.Command{
 	Use:   "genrpz",
-	Short: "Return the white/black/greylists from the current data structures",
+	Short: "Return the allow/deny/doubtlists from the current data structures",
 	Run: func(cmd *cobra.Command, args []string) {
 		resp := SendDebugCmd(tapir.DebugPost{
 			Command: "gen-output",
@@ -66,8 +66,8 @@ var debugGenRpzCmd = &cobra.Command{
 
 		fmt.Printf("Received %d bytes of data\n", len(resp.Msg))
 
-		fmt.Printf("black count=%d: %v\n", resp.BlacklistedNames)
-		fmt.Printf("grey count=%d: %v\n", resp.GreylistedNames)
+		fmt.Printf("deny count=%d: %v\n", resp.DenylistedNames)
+		fmt.Printf("doubt count=%d: %v\n", resp.DoubtlistedNames)
 		//	    	fmt.Printf("count=%d: %v\n", res.RpzOutput)
 		for _, tn := range resp.RpzOutput {
 			fmt.Printf("%s\n", (*tn.RR).String())
@@ -100,7 +100,7 @@ var debugMqttStatsCmd = &cobra.Command{
 
 var debugReaperStatsCmd = &cobra.Command{
 	Use:   "reaper-stats",
-	Short: "Return the reaper status for all known greylists",
+	Short: "Return the reaper status for all known doubtlists",
 	Run: func(cmd *cobra.Command, args []string) {
 		resp := SendDebugCmd(tapir.DebugPost{
 			Command: "reaper-stats",
@@ -112,12 +112,12 @@ var debugReaperStatsCmd = &cobra.Command{
 			fmt.Printf("%s\n", resp.Msg)
 		}
 
-		for greylist, data := range resp.ReaperStats {
+		for doubtlist, data := range resp.ReaperStats {
 			if len(data) == 0 {
-				fmt.Printf("No reaper data for greylist %s\n", greylist)
+				fmt.Printf("No reaper data for doubtlist %s\n", doubtlist)
 				continue
 			}
-			fmt.Printf("From greylist %s at the following times these names will be deleted:\n", greylist)
+			fmt.Printf("From doubtlist %s at the following times these names will be deleted:\n", doubtlist)
 			out := []string{"Time|Count|Names"}
 			for t, d := range data {
 				out = append(out, fmt.Sprintf("%s|%d|%v", t.Format(timelayout), len(d), d))
@@ -201,12 +201,12 @@ var debugSyncZoneCmd = &cobra.Command{
 
 var Listname string
 
-var debugGreylistStatusCmd = &cobra.Command{
-	Use:   "greylist-status",
-	Short: "Return the greylist status for all greylists",
+var debugDoubtlistStatusCmd = &cobra.Command{
+	Use:   "doubtlist-status",
+	Short: "Return the doubtlist status for all doubtlists",
 	Run: func(cmd *cobra.Command, args []string) {
 		status, buf, err := tapir.GlobalCF.Api.RequestNG(http.MethodPost, "/bootstrap", tapir.BootstrapPost{
-			Command: "greylist-status",
+			Command: "doubtlist-status",
 		}, false)
 		if err != nil {
 			fmt.Printf("Error from RequestNG: %v\n", err)
@@ -269,17 +269,17 @@ var debugGenerateSchemaCmd = &cobra.Command{
 	},
 }
 
-var debugImportGreylistCmd = &cobra.Command{
-	Use:   "import-greylist",
-	Short: "Import the current data for the named greylist from the TEM bootstrap server",
+var debugImportDoubtlistCmd = &cobra.Command{
+	Use:   "import-doubtlist",
+	Short: "Import the current data for the named doubtlist from the TEM bootstrap server",
 	Run: func(cmd *cobra.Command, args []string) {
 		if Listname == "" {
-			fmt.Printf("No greylist name specified, using 'dns-tapir'\n")
+			fmt.Printf("No doubtlist name specified, using 'dns-tapir'\n")
 			Listname = "dns-tapir"
 		}
 
 		status, buf, err := tapir.GlobalCF.Api.RequestNG(http.MethodPost, "/bootstrap", tapir.BootstrapPost{
-			Command:  "export-greylist",
+			Command:  "export-doubtlist",
 			ListName: Listname,
 			Encoding: "gob",
 		}, false)
@@ -297,11 +297,11 @@ var debugImportGreylistCmd = &cobra.Command{
 		//			return
 		//		}
 
-		var greylist tapir.WBGlist
+		var doubtlist tapir.WBGlist
 		decoder := gob.NewDecoder(bytes.NewReader(buf))
-		err = decoder.Decode(&greylist)
+		err = decoder.Decode(&doubtlist)
 		if err != nil {
-			// fmt.Printf("Error decoding greylist data: %v\n", err)
+			// fmt.Printf("Error decoding doubtlist data: %v\n", err)
 			// If decoding the gob failed, perhaps we received a tapir.CommandResponse instead?
 			var br tapir.BootstrapResponse
 			err = json.Unmarshal(buf, &br)
@@ -318,27 +318,27 @@ var debugImportGreylistCmd = &cobra.Command{
 			return
 		}
 
-		// fmt.Printf("%v\n", greylist)
-		fmt.Printf("Names present in greylist %s:", Listname)
-		if len(greylist.Names) == 0 {
+		// fmt.Printf("%v\n", doubtlist)
+		fmt.Printf("Names present in doubtlist %s:", Listname)
+		if len(doubtlist.Names) == 0 {
 			fmt.Printf(" None\n")
 		} else {
 			fmt.Printf("\n")
 			out := []string{"Name|Time added|TTL|Tags"}
-			for _, n := range greylist.Names {
+			for _, n := range doubtlist.Names {
 				ttl := n.TTL - time.Now().Sub(n.TimeAdded).Round(time.Second)
 				out = append(out, fmt.Sprintf("%s|%v|%v|%v", n.Name, n.TimeAdded.Format(tapir.TimeLayout), ttl, n.TagMask))
 			}
 			fmt.Printf("%s\n", columnize.SimpleFormat(out))
 		}
 
-		fmt.Printf("ReaperData present in greylist %s:", Listname)
-		if len(greylist.ReaperData) == 0 {
+		fmt.Printf("ReaperData present in doubtlist %s:", Listname)
+		if len(doubtlist.ReaperData) == 0 {
 			fmt.Printf(" None\n")
 		} else {
 			fmt.Printf("\n")
 			out := []string{"Time|Count|Names"}
-			for t, d := range greylist.ReaperData {
+			for t, d := range doubtlist.ReaperData {
 				var names []string
 				for n := range d {
 					names = append(names, n)
@@ -353,13 +353,13 @@ var debugImportGreylistCmd = &cobra.Command{
 func init() {
 	DebugCmd.AddCommand(debugSyncZoneCmd, debugZoneDataCmd, debugGenRpzCmd)
 	DebugCmd.AddCommand(debugMqttStatsCmd, debugReaperStatsCmd)
-	DebugCmd.AddCommand(debugImportGreylistCmd, debugGreylistStatusCmd)
+	DebugCmd.AddCommand(debugImportDoubtlistCmd, debugDoubtlistStatusCmd)
 	DebugCmd.AddCommand(debugGenerateSchemaCmd, debugUpdatePopStatusCmd)
 
 	debugUpdatePopStatusCmd.Flags().StringVarP(&popcomponent, "component", "c", "", "Component name")
 	debugUpdatePopStatusCmd.Flags().StringVarP(&popstatus, "status", "s", "", "Component status (ok, warn, fail)")
 
-	debugImportGreylistCmd.Flags().StringVarP(&Listname, "list", "l", "", "Greylist name")
+	debugImportDoubtlistCmd.Flags().StringVarP(&Listname, "list", "l", "", "Doubtlist name")
 	debugSyncZoneCmd.Flags().StringVarP(&tapir.GlobalCF.Zone, "zone", "z", "", "Zone name")
 	debugZoneDataCmd.Flags().StringVarP(&tapir.GlobalCF.Zone, "zone", "z", "", "Zone name")
 	debugSyncZoneCmd.Flags().StringVarP(&zonefile, "file", "f", "", "Zone file")

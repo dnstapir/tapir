@@ -35,7 +35,7 @@ var RpzAddCmd = &cobra.Command{
 
 		if rpztype == "" {
 			fmt.Printf("Error: RPZ list type for domain name \"%s\" not specified.\n", rpzname)
-			fmt.Printf("Error: must be one of: whitelist, greylist or blacklist.\n")
+			fmt.Printf("Error: must be one of: allowlist, doubtlist or denylist.\n")
 			os.Exit(1)
 		}
 
@@ -131,7 +131,7 @@ func init() {
 
 	RpzAddCmd.Flags().StringVarP(&rpzname, "name", "", "", "Domain name to add rule for")
 	RpzLookupCmd.Flags().StringVarP(&rpzname, "name", "", "", "Domain name to look up")
-	RpzAddCmd.Flags().StringVarP(&rpztype, "type", "", "", "One of: whitelist, greylist or blacklist")
+	RpzAddCmd.Flags().StringVarP(&rpztype, "type", "", "", "One of: allowlist, doubtlist or denylist")
 	RpzAddCmd.Flags().StringVarP(&rpzaction, "action", "", "", "Desired action")
 	RpzAddCmd.Flags().StringVarP(&rpzpolicy, "policy", "", "", "Desired policy for this domain name")
 }
