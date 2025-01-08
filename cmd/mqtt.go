@@ -34,7 +34,7 @@ import (
 
 var (
 	mqttclientid, mqtttopic, defaulttopic, mqttdoubtlist, gcfgfile, mqttfid string
-	mqttpub, mqttsub, mqttretain, mqttconfigclear                          bool
+	mqttpub, mqttsub, mqttretain, mqttconfigclear                           bool
 )
 
 var MqttCmd = &cobra.Command{

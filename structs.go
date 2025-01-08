@@ -149,10 +149,10 @@ type DebugResponse struct {
 	RRset            RRset
 	Lists            map[string]map[string]*WBGlist
 	Allowlists       map[string]*WBGlist
-	Denylists       map[string]*WBGlist
-	Doubtlists        map[string]*WBGlist
-	DenylistedNames map[string]bool
-	DoubtlistedNames  map[string]*TapirName
+	Denylists        map[string]*WBGlist
+	Doubtlists       map[string]*WBGlist
+	DenylistedNames  map[string]bool
+	DoubtlistedNames map[string]*TapirName
 	RpzOutput        []RpzName
 	MqttStats        MqttStats
 	TopicData        map[string]TopicData
