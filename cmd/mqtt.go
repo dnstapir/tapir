@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	mqttclientid, mqtttopic, defaulttopic, mqttgreylist, gcfgfile, mqttfid string
-	mqttpub, mqttsub, mqttretain, mqttconfigclear                          bool
+	mqttclientid, mqtttopic, defaulttopic, mqttdoubtlist, gcfgfile, mqttfid string
+	mqttpub, mqttsub, mqttretain, mqttconfigclear                           bool
 )
 
 var MqttCmd = &cobra.Command{
@@ -440,7 +440,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 			SrcName:   srcname,
 			Creator:   "tapir-cli",
 			MsgType:   "observation",
-			ListType:  "greylist",
+			ListType:  "doubtlist",
 			TimeStamp: time.Now(),
 		}
 
@@ -543,7 +543,7 @@ Will end the loop on the operation (or domain name) "QUIT"`,
 					SrcName:   srcname,
 					Creator:   "tapir-cli",
 					MsgType:   "observation",
-					ListType:  "greylist",
+					ListType:  "doubtlist",
 					TimeStamp: time.Now(),
 				}
 				tds = []tapir.Domain{}
@@ -739,7 +739,7 @@ var mqttTapirBootstrapCmd = &cobra.Command{
 
 var mqttTapirBootstrapStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Send send greylist-status request to MQTT Bootstrap Server",
+	Short: "Send send doubtlist-status request to MQTT Bootstrap Server",
 	Run: func(cmd *cobra.Command, args []string) {
 		srcs, err := ParseSources()
 		if err != nil {
@@ -749,7 +749,7 @@ var mqttTapirBootstrapStatusCmd = &cobra.Command{
 		var src *SourceConf
 		for k, v := range srcs {
 			// fmt.Printf("Src: %s, Name: %s, Type: %s, Bootstrap: %v\n", k, v.Name, v.Type, v.Bootstrap)
-			if v.Name == mqttgreylist && v.Source == "mqtt" && v.Type == "greylist" {
+			if v.Name == mqttdoubtlist && v.Source == "mqtt" && v.Type == "doubtlist" {
 				src = &v
 
 				PrintBootstrapMqttStatus(k, src)
@@ -757,7 +757,7 @@ var mqttTapirBootstrapStatusCmd = &cobra.Command{
 		}
 
 		if src == nil {
-			fmt.Printf("Error: greylist source \"%s\" not found in sources", mqttgreylist)
+			fmt.Printf("Error: doubtlist source \"%s\" not found in sources", mqttdoubtlist)
 			os.Exit(1)
 		}
 	},
@@ -777,7 +777,7 @@ func init() {
 	mqttTapirConfigCmd.Flags().BoolVarP(&mqttretain, "retain", "R", false, "Publish a retained message")
 	mqttTapirConfigCmd.Flags().BoolVarP(&mqttconfigclear, "clear", "C", false, "Clear retained config message")
 	mqttTapirConfigCmd.Flags().StringVarP(&gcfgfile, "cfgfile", "F", "", "Name of file containing global config to send")
-	mqttTapirBootstrapCmd.PersistentFlags().StringVarP(&mqttgreylist, "greylist", "G", "dns-tapir", "Greylist to inquire about")
+	mqttTapirBootstrapCmd.PersistentFlags().StringVarP(&mqttdoubtlist, "doubtlist", "G", "dns-tapir", "Doubtlist to inquire about")
 
 	mqttTapirStatusCmd.Flags().StringVarP(&mqttfid, "functionid", "F", "tapir-cli debug tool", "Function ID to send status for")
 }
@@ -785,7 +785,7 @@ func init() {
 func PrintBootstrapMqttStatus(name string, src *SourceConf) error {
 	if len(src.Bootstrap) == 0 {
 		if len(src.Bootstrap) == 0 {
-			fmt.Printf("Note: greylist source %s (name \"%s\") has no bootstrap servers\n", name, src.Name)
+			fmt.Printf("Note: doubtlist source %s (name \"%s\") has no bootstrap servers\n", name, src.Name)
 			return fmt.Errorf("no bootstrap servers")
 		}
 	}
@@ -832,7 +832,7 @@ func PrintBootstrapMqttStatus(name string, src *SourceConf) error {
 		// fmt.Printf("MQTT bootstrap server %s uptime: %v. It has processed %d MQTT messages", server, uptime, 17)
 
 		status, buf, err := api.RequestNG(http.MethodPost, "/bootstrap", tapir.BootstrapPost{
-			Command:  "greylist-status",
+			Command:  "doubtlist-status",
 			ListName: src.Name,
 			Encoding: "json", // XXX: This is our default, but we'll test other encodings later
 		}, true)
@@ -842,18 +842,18 @@ func PrintBootstrapMqttStatus(name string, src *SourceConf) error {
 		}
 
 		if status != http.StatusOK {
-			fmt.Printf("Bootstrap server %s responded with error: %s (instead of greylist status)\n", server, http.StatusText(status))
+			fmt.Printf("Bootstrap server %s responded with error: %s (instead of doubtlist status)\n", server, http.StatusText(status))
 			continue
 		}
 
 		var br tapir.BootstrapResponse
 		err = json.Unmarshal(buf, &br)
 		if err != nil {
-			fmt.Printf("Error decoding greylist-status response from %s: %v. Giving up.\n", server, err)
+			fmt.Printf("Error decoding doubtlist-status response from %s: %v. Giving up.\n", server, err)
 			continue
 		}
 		if br.Error {
-			fmt.Printf("Bootstrap server %s responded with error: %s (instead of greylist status)\n", server, br.ErrorMsg)
+			fmt.Printf("Bootstrap server %s responded with error: %s (instead of doubtlist status)\n", server, br.ErrorMsg)
 		}
 		if tapir.GlobalCF.Verbose && len(br.Msg) != 0 {
 			fmt.Printf("MQTT Bootstrap server %s responded with message: %s\n", server, br.Msg)

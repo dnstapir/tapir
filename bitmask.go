@@ -96,7 +96,7 @@ const (
 	NODATA
 	DROP
 	REDIRECT
-	WHITELIST
+	ALLOWLIST
 	PASSTHRU
 	UnknownAction
 )
@@ -105,8 +105,8 @@ func (tn *TapirName) HasAction(action Action) bool { return tn.Action&action != 
 
 func StringToAction(s string) (Action, error) {
 	switch strings.ToLower(s) {
-	case "whitelist", "passthru":
-		return WHITELIST, nil
+	case "allowlist", "passthru":
+		return ALLOWLIST, nil
 	case "nxdomain":
 		return NXDOMAIN, nil
 	case "nodata":
@@ -125,7 +125,7 @@ var ActionToCNAMETarget = map[Action]string{
 	NXDOMAIN:  ".",
 	NODATA:    "*.",
 	DROP:      "rpz-drop.",
-	WHITELIST: "rpz-passthru.",
+	ALLOWLIST: "rpz-passthru.",
 	REDIRECT:  "what-to-do-about-this",
 }
 
@@ -133,6 +133,6 @@ var ActionToString = map[Action]string{
 	NXDOMAIN:  "NXDOMAIN",
 	NODATA:    "NODATA",
 	DROP:      "DROP",
-	WHITELIST: "WHITELIST",
+	ALLOWLIST: "ALLOWLIST",
 	REDIRECT:  "WHAT-TO-DO-ABOUT-REDIRECTS",
 }

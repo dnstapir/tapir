@@ -82,7 +82,7 @@ type CommandPost struct {
 	Zone      string
 	Name      string // Domain name to add/remove an RPZ action for
 	ListType  string
-	ListName  string // used in the export-greylist command
+	ListName  string // used in the export-doubtlist command
 	Policy    string // RPZ policy
 	Action    string // RPZ action (OBE)
 	RpzSource string // corresponds with the sourceid in tem.yaml
@@ -148,11 +148,11 @@ type DebugResponse struct {
 	OwnerIndex       map[string]int
 	RRset            RRset
 	Lists            map[string]map[string]*WBGlist
-	Whitelists       map[string]*WBGlist
-	Blacklists       map[string]*WBGlist
-	Greylists        map[string]*WBGlist
-	BlacklistedNames map[string]bool
-	GreylistedNames  map[string]*TapirName
+	Allowlists       map[string]*WBGlist
+	Denylists        map[string]*WBGlist
+	Doubtlists       map[string]*WBGlist
+	DenylistedNames  map[string]bool
+	DoubtlistedNames map[string]*TapirName
 	RpzOutput        []RpzName
 	MqttStats        MqttStats
 	TopicData        map[string]TopicData
@@ -240,7 +240,7 @@ type TapirMsg struct {
 	SrcName  string // must match a defined source
 	Creator  string // "spark"	|| "tapir-cli"
 	MsgType  string // "observation", "reset", "global-config"...
-	ListType string // "{white|black|grey}list"
+	ListType string // "{allow|deny|doubt}list"
 	Added    []Domain
 	Removed  []Domain
 	Msg      string
@@ -338,7 +338,7 @@ type MqttDetails struct {
 type WBGlist struct {
 	Name        string
 	Description string
-	Type        string // whitelist | blacklist | greylist
+	Type        string // allowlist | denylist | doubtlist
 	Immutable   bool   // true = won't be updated by globalconfig topic.
 	SrcFormat   string // Format of external source: dawg | rpz | tapir-mqtt-v1 | ...
 	Format      string // Format of internal storage: dawg | map | slice | trie | rbtree | ...
@@ -348,8 +348,8 @@ type WBGlist struct {
 	Dawgf       dawg.Finder
 	MqttDetails *MqttDetails
 
-	// greylist sources needs more complex stuff here:
-	//	GreyNames   map[string]GreyName
+	// doubtlist sources needs more complex stuff here:
+	//	DoubtNames   map[string]DoubtName
 	RpzZoneName string
 	RpzUpstream string
 	RpzSerial   int
