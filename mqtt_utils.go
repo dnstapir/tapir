@@ -394,12 +394,28 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				fmt.Printf("MQTT Engine %s: %s command received\n", me.Creator, cmd.Cmd)
 				switch cmd.Cmd {
 				case "stop":
-					StopEngine(cmd.Resp)
+					err := StopEngine(cmd.Resp)
+					if err != nil {
+						// Note: No need to return the error response, because StopEngine already does that.
+						lg.Printf("MQTT Engine %s: error from StopEngine: %v", me.Creator, err)
+					}
 				case "start":
-					StartEngine(cmd.Resp)
+					err := StartEngine(cmd.Resp)
+					if err != nil {
+						// Note: No need to return the error response, because StartEngine already does that.
+						lg.Printf("MQTT Engine %s: error from StartEngine: %v", me.Creator, err)
+					}
 				case "restart":
-					StopEngine(cmd.Resp)
-					StartEngine(cmd.Resp)
+					err := StopEngine(cmd.Resp)
+					if err != nil {
+						// Note: No need to return the error response, because StopEngine already does that.
+						lg.Printf("MQTT Engine %s: error from StopEngine: %v", me.Creator, err)
+					}
+					err = StartEngine(cmd.Resp)
+					if err != nil {
+						// Note: No need to return the error response, because StartEngine already does that.
+						lg.Printf("MQTT Engine %s: error from StartEngine: %v", me.Creator, err)
+					}
 				default:
 					lg.Printf("MQTT Engine: Error: unknown command: %s", cmd.Cmd)
 				}

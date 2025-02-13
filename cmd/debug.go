@@ -191,9 +191,6 @@ var debugSyncZoneCmd = &cobra.Command{
 		zd.Sync()
 		fmt.Printf("----- zd.RRs (post-sync): ----\n")
 		tapir.PrintRRs(zd.RRs)
-		zd.Sync()
-		fmt.Printf("----- zd.RRs (post-sync): ----\n")
-		tapir.PrintRRs(zd.RRs)
 		fmt.Printf("----- zd.BodyRRs: ----\n")
 		tapir.PrintRRs(zd.BodyRRs)
 	},

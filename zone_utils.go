@@ -122,7 +122,8 @@ func (zd *ZoneData) FetchFromUpstream(upstream string, current_serial uint32, ve
 	return nil
 }
 
-func (zd *ZoneData) Sync() error {
+// Sync() has no error condition.
+func (zd *ZoneData) Sync() {
 	log.Printf("zd.Sync(): pre sync: there are %d RRs in BodyRRs and %d RRs in RRs",
 		len(zd.BodyRRs), len(zd.RRs))
 	rrs := []dns.RR{dns.RR(&zd.SOA)}
@@ -141,7 +142,6 @@ func (zd *ZoneData) Sync() error {
 	}
 
 	zd.RRs = rrs
-	return nil
 }
 
 func (zd *ZoneData) PrintOwners() {
