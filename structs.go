@@ -15,6 +15,7 @@ import (
 
 	"github.com/eclipse/paho.golang/autopaho"
 	"github.com/eclipse/paho.golang/paho"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/miekg/dns"
 	"github.com/smhanov/dawg"
 	// "your_project_path/tapirpb" // Adjust this import path to the actual path where your generated protobuf files are located
@@ -301,13 +302,13 @@ type MqttEngine struct {
 	CanSubscribe      bool                 // can subscribe to all topics
 	Logger            *log.Logger
 	Cancel            context.CancelFunc
+    Keystore          jwk.Set
 }
 
 type TopicData struct {
 	Topic        string // topic must be in the TopicData, because sometimes we change it, and we need to keep the TopicData entry.
 	SigningKey   *ecdsa.PrivateKey
 	Sign         bool
-	ValidatorKey *ecdsa.PublicKey
 	Validate     bool   // should incoming messages be validated by the validator key?
 	PubMode      string // "raw" indicates that the data should just be passed through untouched
 	SubMode      string // "raw" indicates that the data should just be passed through untouched
@@ -329,7 +330,7 @@ type MqttEngineResponse struct {
 }
 
 type MqttDetails struct {
-	ValidatorKeys map[string]*ecdsa.PublicKey // map[topic]*key
+	ValidatorKeys map[string]string // Never interested in values. Keep as map to have similar behavior as before
 	Bootstrap     []string
 	BootstrapUrl  string
 	BootstrapKey  string
