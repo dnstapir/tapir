@@ -125,16 +125,35 @@ var renewClientCertOut  string
 func init() {
 	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNSTAPIR enrollment credentials")
 	EnrollCmd.Flags().StringVarP(&enrollWorkdir, FLAG_ENROLL_WORKDIR, "w", DIRNAME_DEFAULT_WORKDIR, "Directory for storing cryptographic material on disk")
-    EnrollCmd.MarkFlagRequired(FLAG_ENROLL_CREDENTIALS)
+    err := EnrollCmd.MarkFlagRequired(FLAG_ENROLL_CREDENTIALS)
+    if err != nil {
+        panic(err)
+    }
 
     RenewCmd.Flags().StringVarP(&renewDatakey, FLAG_RENEW_DATAKEY, "D", "", "Datakey used to sign the renew request")
     RenewCmd.Flags().StringVarP(&renewClientKey, FLAG_RENEW_CLIENTKEY, "k", "", "Private key for which to receive a certificate for")
     RenewCmd.Flags().StringVarP(&renewCaCertOut, FLAG_RENEW_CACERT_OUT, "C", "", "File to write CA cert from response to")
     RenewCmd.Flags().StringVarP(&renewClientCertOut, FLAG_RENEW_CLIENTCERT_OUT, "c", "", "File to write renewed client cert from response to")
-    RenewCmd.MarkFlagRequired(FLAG_RENEW_DATAKEY)
-    RenewCmd.MarkFlagRequired(FLAG_RENEW_CLIENTKEY)
-    RenewCmd.MarkFlagRequired(FLAG_RENEW_CACERT_OUT)
-    RenewCmd.MarkFlagRequired(FLAG_RENEW_CLIENTCERT_OUT)
+
+    err = RenewCmd.MarkFlagRequired(FLAG_RENEW_DATAKEY)
+    if err != nil {
+        panic(err)
+    }
+
+    err = RenewCmd.MarkFlagRequired(FLAG_RENEW_CLIENTKEY)
+    if err != nil {
+        panic(err)
+    }
+
+    err = RenewCmd.MarkFlagRequired(FLAG_RENEW_CACERT_OUT)
+    if err != nil {
+        panic(err)
+    }
+
+    err = RenewCmd.MarkFlagRequired(FLAG_RENEW_CLIENTCERT_OUT)
+    if err != nil {
+        panic(err)
+    }
 }
 
 func enroll() {
@@ -369,8 +388,13 @@ func enroll() {
     if err != nil {
         panic(err)
     }
+
 	fhSources, err := os.OpenFile(sourcesFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+    if err != nil {
+        panic(err)
+    }
     defer fhSources.Close()
+
     err = tmlSources.Execute(fhSources, cfg)
     if err != nil {
         panic(err)
@@ -380,8 +404,13 @@ func enroll() {
     if err != nil {
         panic(err)
     }
+
 	fhTapirPop, err := os.OpenFile(tapirPopFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+    if err != nil {
+        panic(err)
+    }
     defer fhTapirPop.Close()
+
     err = tmlTapirPop.Execute(fhTapirPop, cfg)
     if err != nil {
         panic(err)
@@ -391,8 +420,13 @@ func enroll() {
     if err != nil {
         panic(err)
     }
+
 	fhTapirEdm, err := os.OpenFile(tapirEdmFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+    if err != nil {
+        panic(err)
+    }
     defer fhTapirEdm.Close()
+
     err = tmlTapirEdm.Execute(fhTapirEdm, cfg)
     if err != nil {
         panic(err)
@@ -474,7 +508,7 @@ func renew() {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-        panic(err)
+		panic(errors.New(fmt.Sprintf("unexpected status code from renewal: %d (%s)", resp.StatusCode, body)))
 	}
 
 	respPayload := renewRespPayload{}
