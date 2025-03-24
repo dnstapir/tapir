@@ -238,17 +238,17 @@ type MqttData struct {
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-    SrcName  string `json:"src_name"`// must match a defined source
+	SrcName  string `json:"src_name"` // must match a defined source
 	Creator  string // "spark"	|| "tapir-cli"
-	MsgType  string `json:"msg_type"`// "observation", "reset", "global-config"...
-	ListType string `json:"list_type"`// "{allow|deny|doubt}list"
+	MsgType  string `json:"msg_type"`  // "observation", "reset", "global-config"...
+	ListType string `json:"list_type"` // "{allow|deny|doubt}list"
 	Added    []Domain
 	Removed  []Domain
 	Msg      string
 	//	GlobalConfig        GlobalConfig
 	//	TapirFunctionStatus TapirFunctionStatus
 	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
-    TimeStr   string    `json:"time_str"`// time string encoded in the payload by the sender, not touched by MQTT
+	TimeStr   string    `json:"time_str"` // time string encoded in the payload by the sender, not touched by MQTT
 }
 
 // Things we need to have in the global config include:
@@ -277,9 +277,9 @@ type GlobalConfigTopic struct {
 type Domain struct {
 	Name         string
 	TimeAdded    time.Time `json:"time_added"`
-	TTL          int     // in seconds
-	TagMask      TagMask `json:"tag_mask"`// here is the bitfield
-	ExtendedTags []string `json:"extended_tags"`
+	TTL          int       // in seconds
+	TagMask      TagMask   `json:"tag_mask"` // here is the bitfield
+	ExtendedTags []string  `json:"extended_tags"`
 	// Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
 }
 
@@ -302,7 +302,7 @@ type MqttEngine struct {
 	CanSubscribe      bool                 // can subscribe to all topics
 	Logger            *log.Logger
 	Cancel            context.CancelFunc
-    Keystore          jwk.Set
+	Keystore          jwk.Set
 }
 
 type TopicData struct {

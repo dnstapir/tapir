@@ -67,7 +67,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		return nil, fmt.Errorf("MQTT validation key storage not specified!")
 	}
 
-    keystore, err := jwk.ReadFile(keystoreFilename)
+	keystore, err := jwk.ReadFile(keystoreFilename)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading keystorage file!")
 	}
@@ -87,7 +87,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		PrefixTopics: make(map[string]bool),
 		Logger:       lg,
 		QoS:          qos,
-        Keystore:     keystore,
+		Keystore:     keystore,
 	}
 
 	if pubsub&TapirPub == 0 {
@@ -674,12 +674,11 @@ func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("Error parsing signing key file")
 		}
 
-        err = keyParsed.Raw(&PrivKey)
+		err = keyParsed.Raw(&PrivKey)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting raw key from JWK")
 		}
-    }
-
+	}
 
 	return &PrivKey, nil
 }
