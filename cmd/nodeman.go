@@ -451,7 +451,7 @@ func renew() {
 		fmt.Printf("Will overwrite existing file %s\n", renewCaCertOut)
 	}
 
-	keyFile, err := os.ReadFile(renewDatakey)// #nosec G304 -- variable is set by CLI flag only
+	keyFile, err := os.ReadFile(renewDatakey) // #nosec G304 -- variable is set by CLI flag only
 	if err != nil {
 		panic(err)
 	}
@@ -503,7 +503,7 @@ func renew() {
 
 	payloadReader := bytes.NewReader(payloadJWS)
 
-	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader)// #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
+	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader) // #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
 	if err != nil {
 		panic(err)
 	}
