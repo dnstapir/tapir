@@ -94,34 +94,40 @@ var RenewCmd = &cobra.Command{
 	},
 }
 
-const FLAG_ENROLL_CREDENTIALS = "enroll-credentials"
-const FLAG_ENROLL_WORKDIR = "workdir"
-const FLAG_RENEW_DATAKEY = "renew-datakey"
-const FLAG_RENEW_CLIENTKEY = "renew-clientkey"
-const FLAG_RENEW_CACERT_OUT = "renew-cacert-out"
-const FLAG_RENEW_CLIENTCERT_OUT = "renew-clientcert-out"
+const (
+	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials"
+	FLAG_ENROLL_WORKDIR       = "workdir"
+	FLAG_RENEW_DATAKEY        = "renew-datakey"
+	FLAG_RENEW_CLIENTKEY      = "renew-clientkey"
+	FLAG_RENEW_CACERT_OUT     = "renew-cacert-out"
+	FLAG_RENEW_CLIENTCERT_OUT = "renew-clientcert-out"
+)
 
-const DIRNAME_DEFAULT_WORKDIR = "/etc/dnstapir/certs/"
-const FILENAME_DATAKEY_PRIV = "datakey-priv.json"
-const FILENAME_TLS_CRT = "tls.crt"
-const FILENAME_TLS_KEY = "tls.key"
-const FILENAME_CA_CRT = "ca.crt"
-const FILENAME_VALKEY_STORE = "validation-keys.json"
-const FILENAME_POP_SOURCES = "pop-sources.yaml"
-const FILENAME_POP_OUTPUTS = "pop-outputs.yaml"
-const FILENAME_POP_POLICY = "pop-policy.yaml"
-const FILENAME_TAPIR_POP = "tapir-pop.yaml"
-const FILENAME_TAPIR_EDM = "tapir-edm.toml"
-const URL_NODEMAN_API_PATH = "api/v1/node"
-const CONTENT_TYPE_NODEMAN_API = "application/json"
-const JWK_KEY_ISS = "iss"
+const (
+	DIRNAME_DEFAULT_WORKDIR  = "/etc/dnstapir/certs/"
+	FILENAME_DATAKEY_PRIV    = "datakey-priv.json"
+	FILENAME_TLS_CRT         = "tls.crt"
+	FILENAME_TLS_KEY         = "tls.key"
+	FILENAME_CA_CRT          = "ca.crt"
+	FILENAME_VALKEY_STORE    = "validation-keys.json"
+	FILENAME_POP_SOURCES     = "pop-sources.yaml"
+	FILENAME_POP_OUTPUTS     = "pop-outputs.yaml"
+	FILENAME_POP_POLICY      = "pop-policy.yaml"
+	FILENAME_TAPIR_POP       = "tapir-pop.yaml"
+	FILENAME_TAPIR_EDM       = "tapir-edm.toml"
+	URL_NODEMAN_API_PATH     = "api/v1/node"
+	CONTENT_TYPE_NODEMAN_API = "application/json"
+	JWK_KEY_ISS              = "iss"
+)
 
-var enrollWorkdir string
-var enrollCredsFilename string
-var renewDatakey string
-var renewClientKey string
-var renewCaCertOut string
-var renewClientCertOut string
+var (
+	enrollWorkdir       string
+	enrollCredsFilename string
+	renewDatakey        string
+	renewClientKey      string
+	renewCaCertOut      string
+	renewClientCertOut  string
+)
 
 func init() {
 	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNSTAPIR enrollment credentials")
