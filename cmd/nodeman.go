@@ -95,7 +95,7 @@ var RenewCmd = &cobra.Command{
 }
 
 const (
-	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials"
+	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials" // #nosec G101 -- only used as flag name in CLI
 	FLAG_ENROLL_WORKDIR       = "workdir"
 	FLAG_RENEW_DATAKEY        = "renew-datakey"
 	FLAG_RENEW_CLIENTKEY      = "renew-clientkey"
@@ -339,7 +339,7 @@ func enroll() {
 		panic(err)
 	}
 
-	resp, err := http.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader)
+	resp, err := http.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader) //#nosec G107 -- URL read from a file that the user chooses with CLI args and that is assumed to be from a trusted source
 	if err != nil {
 		panic(err)
 	}
@@ -451,7 +451,7 @@ func renew() {
 		fmt.Printf("Will overwrite existing file %s\n", renewCaCertOut)
 	}
 
-	keyFile, err := os.ReadFile(renewDatakey)
+	keyFile, err := os.ReadFile(renewDatakey)// #nosec G304 -- variable is set by CLI flag only
 	if err != nil {
 		panic(err)
 	}
@@ -503,7 +503,7 @@ func renew() {
 
 	payloadReader := bytes.NewReader(payloadJWS)
 
-	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader)
+	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader)// #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
 	if err != nil {
 		panic(err)
 	}
