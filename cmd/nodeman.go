@@ -351,7 +351,7 @@ func enroll() {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		panic(errors.New(fmt.Sprintf("unexpected status code from enrollment: %d (%s)", resp.StatusCode, body)))
+		panic(fmt.Errorf("unexpected status code from enrollment: %d (%s)", resp.StatusCode, body))
 	}
 
 	respPayload := enrollRespPayload{
@@ -463,12 +463,12 @@ func renew() {
 
 	value, ok := dataKey.Get(JWK_KEY_ISS)
 	if !ok {
-		panic(errors.New("Datakey missing issuer field containing nodeman URL"))
+		panic(errors.New("datakey missing issuer field containing nodeman url"))
 	}
 
 	nodemanUrl, ok := value.(string)
 	if !ok {
-		panic(errors.New("Bad data type for datakey issuer field"))
+		panic(errors.New("bad data type for datakey issuer field"))
 	}
 
 	renewURL, err := url.JoinPath(nodemanUrl, URL_NODEMAN_API_PATH, dataKey.KeyID(), "renew")
@@ -515,7 +515,7 @@ func renew() {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		panic(errors.New(fmt.Sprintf("unexpected status code from renewal: %d (%s)", resp.StatusCode, body)))
+		panic(fmt.Errorf("unexpected status code from renewal: %d (%s)", resp.StatusCode, body))
 	}
 
 	respPayload := renewRespPayload{}
