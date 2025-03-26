@@ -659,7 +659,7 @@ func PrintTapirMsg(tm TapirMsg, lg *log.Logger) {
 
 func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 	log.Printf("FetchMqttSigningKey: topic %s, filename %s", topic, filename)
-	var PrivKey *ecdsa.PrivateKey
+	var PrivKey ecdsa.PrivateKey
 	if filename == "" {
 		log.Printf("MQTT signing private key for topic %s file not specified in config, publish not possible", topic)
 		return nil, fmt.Errorf("no signing key file specified")
@@ -675,13 +675,13 @@ func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 			return nil, fmt.Errorf("error parsing signing key file")
 		}
 
-		err = keyParsed.Raw(PrivKey)
+		err = keyParsed.Raw(&PrivKey)
 		if err != nil {
 			return nil, fmt.Errorf("error getting raw key from jwk")
 		}
 	}
 
-	return PrivKey, nil
+	return &PrivKey, nil
 }
 
 // MqttTopic returns the MQTT topic for a given common name and viper key.
