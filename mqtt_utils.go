@@ -64,12 +64,12 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 
 	keystoreFilename := viper.GetString("keystore.path")
 	if keystoreFilename == "" {
-		return nil, fmt.Errorf("MQTT validation key storage not specified!")
+		return nil, fmt.Errorf("mqtt validation key storage not specified")
 	}
 
 	keystore, err := jwk.ReadFile(keystoreFilename)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading keystorage file!")
+		return nil, fmt.Errorf("error reading keystorage file")
 	}
 
 	_, caCertPool, clientCert, err := FetchTapirClientCert(lg, statusch)
@@ -666,17 +666,17 @@ func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 		filename = filepath.Clean(filename)
 		keyFile, err := os.ReadFile(filename)
 		if err != nil {
-			return nil, fmt.Errorf("Error reading signing key file")
+			return nil, fmt.Errorf("error reading signing key file")
 		}
 
 		keyParsed, err := jwk.ParseKey(keyFile)
 		if err != nil {
-			return nil, fmt.Errorf("Error parsing signing key file")
+			return nil, fmt.Errorf("error parsing signing key file")
 		}
 
 		err = keyParsed.Raw(&PrivKey)
 		if err != nil {
-			return nil, fmt.Errorf("Error getting raw key from JWK")
+			return nil, fmt.Errorf("error getting raw key from jwk")
 		}
 	}
 
