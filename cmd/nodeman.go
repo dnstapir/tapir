@@ -39,7 +39,7 @@ type enrollRespPayload struct {
 	X509CACertificate string            `json:"x509_ca_certificate"`
 	Name              string            `json:"name"`
 	MqttBroker        string            `json:"mqtt_broker"`
-	AggregatesUrl     string            `json:"aggregates_url"`
+	AggrecUrl         string            `json:"aggrec_url"`
 	MqttTopics        map[string]string `json:"mqtt_topics"`
 	TrustedJWKS       jwk.Set           `json:"trusted_jwks"`
 }
@@ -75,7 +75,7 @@ type ConfigData struct { /* For use with config templates below */
 	SignkeyPath        string
 	ValidationKeysPath string
 	MqttBroker         string
-	AggregatesUrl      string
+	AggrecUrl          string
 }
 
 var EnrollCmd = &cobra.Command{
@@ -172,7 +172,7 @@ func enroll() {
 		ValidationKeysPath: filepath.Clean(enrollWorkdir + "/" + FILENAME_VALKEY_STORE),
 		SignkeyPath:        filepath.Clean(enrollWorkdir + "/" + FILENAME_DATAKEY_PRIV),
 		MqttBroker:         "### EDIT add MQTT broker URL",
-		AggregatesUrl:      "### EDIT add URL for sending aggregated data",
+		AggrecUrl:          "### EDIT add URL for sending aggregated data",
 	}
 
 	if fileExists(sourcesFilename) {
@@ -381,8 +381,8 @@ func enroll() {
 	if respPayload.MqttBroker != "" {
 		cfg.MqttBroker = respPayload.MqttBroker
 	}
-	if respPayload.AggregatesUrl != "" {
-		cfg.AggregatesUrl = respPayload.AggregatesUrl
+	if respPayload.AggrecUrl != "" {
+		cfg.AggrecUrl = respPayload.AggrecUrl
 	}
 
 	tmlSources, err := template.New("sources").Parse(CFG_TML_POP_SOURCES)
@@ -749,7 +749,7 @@ mqtt-ca-file = "{{.CaCertPath}}"
 mqtt-client-cert-file = "{{.ClientCertPath}}"
 mqtt-client-key-file = "{{.ClientKeyPath}}"
 mqtt-server = "{{.MqttBroker}}"
-http-url = "{{.AggregatesUrl}}"
+http-url = "{{.AggrecUrl}}"
 http-signing-key-file = "{{.SignkeyPath}}"
 http-client-cert-file = "{{.ClientCertPath}}"
 http-client-key-file = "{{.ClientKeyPath}}"
