@@ -674,27 +674,26 @@ func genCsr(key *ecdsa.PrivateKey, name string) (string, error) {
 const CFG_TML_POP_OUTPUTS = `
 outputs:
    rpz1:
-      active:		true
       downstream:	### EDIT, address and port (ip:port) of resolver to NOTIFY of RPZ changes
+      active:		true
 `
 
 const CFG_TML_POP_POLICY = `
-### This file contains sample configuration for how to formulate policies from DNSTAPIR observations
 policy:
    logfile:		/var/log/dnstapir/pop-policy.log
    allowlist:
       action:		PASSTHRU
    denylist:
-      action:		NODATA	# present in any denylist->action
+      action:		NODATA
    doubtlist:
-      numsources:	# present in this or more sources->action
-         limit:		2 
+      numsources:
+         limit:		2
          action:	NXDOMAIN
-      numtapirtags:     # more tags than limit ->action
+      numtapirtags:
          limit:		3
          action:	NXDOMAIN
-      denytapir:	# any of these->action
-         tags:		[ likelymalware, badip ]
+      denytapir:
+         tags:		[ ]
          action:	REDIRECT
 `
 
@@ -702,7 +701,7 @@ const CFG_TML_POP_SOURCES = `
 sources:
    tapir1:
       active:       true
-      name:         dns-tapir	# Must have EXACTLY this name!
+      name:         dns-tapir
       description:  DNS TAPIR main intelligence feed
       type:         doubtlist
       source:       mqtt
@@ -714,6 +713,12 @@ sources:
 `
 
 const CFG_TML_TAPIR_POP = `
+dnsengine:
+   addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
+   active:    true
+   name:      TAPIR-POP DNS Engine
+   logfile:	  /var/log/dnstapir/pop-dnsengine.log
+
 cli:
    tapir-pop:
       url:    https://127.0.0.1:9099/api/v1
@@ -733,15 +738,9 @@ bootstrapserver:
    addresses:	 [ 0.0.0.0:5454 ]
    tlsaddresses: [ 0.0.0.0:5455 ]
 
-dnsengine:
-   active:    true
-   name:      TAPIR-POP DNS Engine
-   addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
-   logfile:	  /var/log/dnstapir/pop-dnsengine.log
-
 services:
    reaper:
-      interval: 60 # seconds, time between runs of deleting expired data
+      interval: 60
    rpz:
       zonename:		dnstapir.
       serialcache:	/etc/dnstapir/pop/rpz-serial.yaml
@@ -770,11 +769,11 @@ tapir:
       signingkey:	{{.SignkeyPath}}
 
 certs:
-   certdir:	    {{.CertdirPath}} # TODO Check if can be removed
-   cacertfile:	{{.CaCertPath}} # TODO Check if can be removed
+   certdir:	    {{.CertdirPath}}
+   cacertfile:	{{.CaCertPath}}
    tapir-pop:
-      cert:	{{.ClientCertPath}} # TODO Check if can be removed
-      key:	{{.ClientKeyPath}} # TODO Check if can be removed
+      cert:	{{.ClientCertPath}}
+      key:	{{.ClientKeyPath}}
 
 log:
    file:	/var/log/dnstapir/tapir-pop.log
@@ -784,22 +783,22 @@ log:
 
 const CFG_TML_TAPIR_EDM = `
 cryptopan-key = ### EDIT Choose a good secret and put it here
+input-tcp = ### EDIT add ip+port of resolver's DNSTAP interface here
+mqtt-signing-key-file = "{{.SignkeyPath}}"
+mqtt-client-cert-file = "{{.ClientCertPath}}"
+mqtt-client-key-file = "{{.ClientKeyPath}}"
+http-signing-key-file = "{{.SignkeyPath}}"
+http-client-cert-file = "{{.ClientCertPath}}"
+http-client-key-file = "{{.ClientKeyPath}}"
+mqtt-ca-file = "{{.CaCertPath}}"
+mqtt-server = "{{.MqttBroker}}"
+http-url = "{{.AggrecUrl}}"
 ignored-client-ips-file = "/etc/dnstapir/edm/ignored-ips"
 ignored-question-names-file = "/etc/dnstapir/edm/ignored.dawg"
 debug-enable-blockprofiling = false
 debug-enable-mutexprofiling = false
 disable-mqtt-filequeue = true
-input-tcp = ### EDIT add ip+port of resolver's DNSTAP interface here
 minimiser-workers = 4
 disable-session-files = true
 well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
-mqtt-signing-key-file = "{{.SignkeyPath}}"
-mqtt-ca-file = "{{.CaCertPath}}"
-mqtt-client-cert-file = "{{.ClientCertPath}}"
-mqtt-client-key-file = "{{.ClientKeyPath}}"
-mqtt-server = "{{.MqttBroker}}"
-http-url = "{{.AggrecUrl}}"
-http-signing-key-file = "{{.SignkeyPath}}"
-http-client-cert-file = "{{.ClientCertPath}}"
-http-client-key-file = "{{.ClientKeyPath}}"
 `
