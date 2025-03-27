@@ -96,7 +96,8 @@ var RenewCmd = &cobra.Command{
 
 const (
 	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials" // #nosec G101 -- only used as flag name in CLI
-	FLAG_ENROLL_WORKDIR       = "workdir"
+	FLAG_ENROLL_CONFDIR       = "confdir"
+	FLAG_ENROLL_CERTDIR       = "certdir"
 	FLAG_RENEW_DATAKEY        = "renew-datakey"
 	FLAG_RENEW_CLIENTKEY      = "renew-clientkey"
 	FLAG_RENEW_CACERT_OUT     = "renew-cacert-out"
@@ -104,7 +105,8 @@ const (
 )
 
 const (
-	DIRNAME_DEFAULT_WORKDIR  = "/etc/dnstapir/certs/"
+	DIRNAME_DEFAULT_CONFDIR  = "/etc/dnstapir/"
+	DIRNAME_DEFAULT_CERTDIR  = "/etc/dnstapir/certs/"
 	FILENAME_DATAKEY_PRIV    = "datakey-priv.json"
 	FILENAME_TLS_CRT         = "tls.crt"
 	FILENAME_TLS_KEY         = "tls.key"
@@ -121,7 +123,8 @@ const (
 )
 
 var (
-	enrollWorkdir       string
+	enrollConfdir       string
+	enrollCertdir       string
 	enrollCredsFilename string
 	renewDatakey        string
 	renewClientKey      string
@@ -131,7 +134,8 @@ var (
 
 func init() {
 	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNSTAPIR enrollment credentials")
-	EnrollCmd.Flags().StringVarP(&enrollWorkdir, FLAG_ENROLL_WORKDIR, "w", DIRNAME_DEFAULT_WORKDIR, "Directory for storing cryptographic material on disk")
+	EnrollCmd.Flags().StringVarP(&enrollConfdir, FLAG_ENROLL_CONFDIR, "", DIRNAME_DEFAULT_CONFDIR, "Directory for storing configuration files")
+	EnrollCmd.Flags().StringVarP(&enrollCertdir, FLAG_ENROLL_CERTDIR, "", DIRNAME_DEFAULT_CERTDIR, "Directory for storing cryptographic material on disk")
 	err := EnrollCmd.MarkFlagRequired(FLAG_ENROLL_CREDENTIALS)
 	if err != nil {
 		panic(err)
@@ -164,19 +168,58 @@ func init() {
 }
 
 func enroll() {
-	sourcesFilename := filepath.Clean(FILENAME_POP_SOURCES)
-	outputsFilename := filepath.Clean(FILENAME_POP_OUTPUTS)
-	policyFilename := filepath.Clean(FILENAME_POP_POLICY)
-	tapirPopFilename := filepath.Clean(FILENAME_TAPIR_POP)
-	tapirEdmFilename := filepath.Clean(FILENAME_TAPIR_EDM)
+	sourcesFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_SOURCES)
+    if err != nil {
+        panic(err)
+    }
+	outputsFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_OUTPUTS)
+    if err != nil {
+        panic(err)
+    }
+	policyFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_POLICY)
+    if err != nil {
+        panic(err)
+    }
+	tapirPopFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_POP)
+    if err != nil {
+        panic(err)
+    }
+	tapirEdmFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_EDM)
+    if err != nil {
+        panic(err)
+    }
+    certdirPath, err := filepath.Abs(enrollCertdir)
+    if err != nil {
+        panic(err)
+    }
+    caCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_CA_CRT)
+    if err != nil {
+        panic(err)
+    }
+    clientCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_CRT)
+    if err != nil {
+        panic(err)
+    }
+    clientKeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_KEY)
+    if err != nil {
+        panic(err)
+    }
+    validationKeysPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_VALKEY_STORE)
+    if err != nil {
+        panic(err)
+    }
+    signkeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_DATAKEY_PRIV)
+    if err != nil {
+        panic(err)
+    }
 
 	cfg := ConfigData{
-		CertdirPath:        filepath.Clean(enrollWorkdir),
-		CaCertPath:         filepath.Clean(enrollWorkdir + "/" + FILENAME_CA_CRT),
-		ClientCertPath:     filepath.Clean(enrollWorkdir + "/" + FILENAME_TLS_CRT),
-		ClientKeyPath:      filepath.Clean(enrollWorkdir + "/" + FILENAME_TLS_KEY),
-		ValidationKeysPath: filepath.Clean(enrollWorkdir + "/" + FILENAME_VALKEY_STORE),
-		SignkeyPath:        filepath.Clean(enrollWorkdir + "/" + FILENAME_DATAKEY_PRIV),
+		CertdirPath:        certdirPath,
+		CaCertPath:         caCertPath,
+		ClientCertPath:     clientCertPath,
+		ClientKeyPath:      clientKeyPath,
+		ValidationKeysPath: validationKeysPath,
+		SignkeyPath:        signkeyPath,
 		MqttBroker:         "### EDIT add MQTT broker URL",
 		AggrecUrl:          "### EDIT add URL for sending aggregated data",
 	}
@@ -197,13 +240,13 @@ func enroll() {
 		panic("Found existing tapir conf in current dir. Aborting...")
 	}
 	if fileExists(cfg.ClientCertPath) {
-		panic("Found an existing TLS client cert in workdir. Aborting...")
+		panic("Found an existing TLS client cert in certdir. Aborting...")
 	}
 	if fileExists(cfg.ClientKeyPath) {
-		panic("Found an existing TLS CA cert in workdir. Aborting...")
+		panic("Found an existing TLS CA cert in certdir. Aborting...")
 	}
 	if fileExists(cfg.ValidationKeysPath) {
-		panic("Found existing validation keys in workdir. Aborting...")
+		panic("Found existing validation keys in certdir. Aborting...")
 	}
 
 	credsFh, err := os.Open(filepath.Clean(enrollCredsFilename))
@@ -439,8 +482,8 @@ func enroll() {
 		panic(err)
 	}
 
-	writeToFile(FILENAME_POP_OUTPUTS, CFG_TML_POP_OUTPUTS) /* no templating needed right now */
-	writeToFile(FILENAME_POP_POLICY, CFG_TML_POP_POLICY)   /* no templating needed right now */
+	writeToFile(outputsFilename, CFG_TML_POP_OUTPUTS) /* no templating needed right now */
+	writeToFile(policyFilename, CFG_TML_POP_POLICY)   /* no templating needed right now */
 }
 
 func renew() {
@@ -632,7 +675,7 @@ const CFG_TML_POP_OUTPUTS = `
 outputs:
    rpz1:
       active:		true
-      downstream:	### EDIT, address+port of resolver to NOTIFY of RPZ changes
+      downstream:	### EDIT, address and port (ip:port) of resolver to NOTIFY of RPZ changes
 `
 
 const CFG_TML_POP_POLICY = `
@@ -693,7 +736,7 @@ bootstrapserver:
 dnsengine:
    active:    true
    name:      TAPIR-POP DNS Engine
-   addresses: [ ### EDIT Addresses to listen to for RPZ XFR requests ]
+   addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
    logfile:	  /var/log/dnstapir/pop-dnsengine.log
 
 services:
@@ -740,16 +783,16 @@ log:
 `
 
 const CFG_TML_TAPIR_EDM = `
-cryptopan-key = ### EDIT add secret
-ignored-client-ips-file = "/etc/edm/ignored-ips"
-ignored-question-names-file = "/etc/edm/ignored.dawg"
+cryptopan-key = ### EDIT Choose a good secret and put it here
+ignored-client-ips-file = "/etc/dnstapir/edm/ignored-ips"
+ignored-question-names-file = "/etc/dnstapir/edm/ignored.dawg"
 debug-enable-blockprofiling = false
 debug-enable-mutexprofiling = false
 disable-mqtt-filequeue = true
 input-tcp = ### EDIT add ip+port of resolver's DNSTAP interface here
 minimiser-workers = 4
 disable-session-files = true
-well-known-domains-file = "/etc/edm/well-known-domains.dawg"
+well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
 mqtt-signing-key-file = "{{.SignkeyPath}}"
 mqtt-ca-file = "{{.CaCertPath}}"
 mqtt-client-cert-file = "{{.ClientCertPath}}"
