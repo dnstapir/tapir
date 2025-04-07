@@ -243,8 +243,9 @@ func enroll() {
 		panic("Found an existing TLS client cert in certdir. Aborting...")
 	}
 	if fileExists(cfg.ClientKeyPath) {
-		panic("Found an existing TLS CA cert in certdir. Aborting...")
-	}
+if fileExists(cfg.ClientKeyPath) {
+    panic("Found an existing TLS client key in certdir. Aborting...")
+}
 	if fileExists(cfg.ValidationKeysPath) {
 		panic("Found existing validation keys in certdir. Aborting...")
 	}
