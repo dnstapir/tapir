@@ -666,7 +666,7 @@ func genCsr(key *ecdsa.PrivateKey, name string) (string, error) {
 		Type:  "CERTIFICATE REQUEST",
 		Bytes: csrDER,
 	}
-	fmt.Printf("CSR: '%s'\n", string(pem.EncodeToMemory(csrBlock)))
+	fmt.Printf("CSR generated successfully\n")
 
 	return string(pem.EncodeToMemory(csrBlock)), nil
 }
