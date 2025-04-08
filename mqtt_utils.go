@@ -9,9 +9,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"log"
 	"net/url"
@@ -26,6 +24,7 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 	"github.com/gookit/goutil/dump"
 	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/ryanuber/columnize"
 	"github.com/spf13/viper"
@@ -63,6 +62,16 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		qos = 2
 	}
 
+	keystoreFilename := viper.GetString("keystore.path")
+	if keystoreFilename == "" {
+		return nil, fmt.Errorf("mqtt validation key storage not specified")
+	}
+
+	keystore, err := jwk.ReadFile(keystoreFilename)
+	if err != nil {
+		return nil, fmt.Errorf("error reading keystorage file")
+	}
+
 	_, caCertPool, clientCert, err := FetchTapirClientCert(lg, statusch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch client certificate: %w", err)
@@ -78,6 +87,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		PrefixTopics: make(map[string]bool),
 		Logger:       lg,
 		QoS:          qos,
+		Keystore:     keystore,
 	}
 
 	if pubsub&TapirPub == 0 {
@@ -360,14 +370,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				}
 
 				if td.Validate {
-					validatorkey := td.ValidatorKey
-					if validatorkey == nil {
-						lg.Printf("MQTT Engine %s: Danger Will Robinson: validator key for MQTT topic %s not found. Dropping message.", me.Creator, inbox.Packet.Topic)
-						lg.Printf("MQTT Engine %s: TopicData: %+v", me.Creator, me.TopicData)
-						continue
-					}
-
-					payload, err := jws.Verify(inbox.Packet.Payload, jws.WithKey(jwa.ES256, validatorkey))
+					payload, err := jws.Verify(inbox.Packet.Payload, jws.WithKeySet(me.Keystore))
 					if err != nil {
 						mpi.Error = true
 						mpi.ErrorMsg = fmt.Sprintf("MQTT Engine %s: failed to verify message: %v", me.Creator, err)
@@ -411,44 +414,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 	return &me, nil
 }
 
-func (me *MqttEngine) xxxPubSubToTopic(topic string, signingkey *ecdsa.PrivateKey, validatorkey *ecdsa.PublicKey,
-	subscriberCh chan MqttPkgIn, mode string, validate bool,
-) (map[string]TopicData, error) {
-	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
-	if topic == "" {
-		return me.TopicData, fmt.Errorf("PubSubToTopic: topic not specified")
-	}
-	if validatorkey == nil && signingkey == nil && validate {
-		return me.TopicData, fmt.Errorf("PubSubToTopic: no validator or signing key specified but validation requested")
-	}
-
-	if mode != "raw" && mode != "struct" {
-		return me.TopicData, fmt.Errorf("PubSubToTopic: unknown mode: %s", mode)
-	}
-	tdata := TopicData{
-		SubMode:  mode,
-		Validate: validate,
-	}
-
-	if signingkey != nil {
-		tdata.SigningKey = signingkey
-		log.Printf("MQTT Engine %s: added signingkey for topic %s.", me.Creator, topic)
-	}
-
-	if validatorkey != nil {
-		tdata.ValidatorKey = validatorkey
-		tdata.SubscriberCh = subscriberCh
-		log.Printf("MQTT Engine %s: added validatorkey for topic %s.", me.Creator, topic)
-	}
-
-	me.TopicData[topic] = tdata
-	log.Printf("MQTT Engine %s: added topic %s. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
-
-	return me.TopicData, nil
-}
-
 func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mode string, sign bool) (map[string]TopicData, error) {
-	//	log.Printf("MQTT Engine: AddTopic: topic %s, validatorkey %v", topic, validatorkey)
 	if topic == "" {
 		return me.TopicData, fmt.Errorf("PubToTopic: topic not specified")
 	}
@@ -495,15 +461,12 @@ func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mod
 	return me.TopicData, nil
 }
 
-func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
+func (me *MqttEngine) SubToTopic(topic string,
 	subscriberCh chan MqttPkgIn, mode string, validate bool,
 ) (map[string]TopicData, error) {
-	log.Printf("MQTT Engine: SubToTopic: topic %s, validatorkey %v, subscriberCh %v, mode %s, validate %t", topic, validatorkey, subscriberCh, mode, validate)
+	log.Printf("MQTT Engine: SubToTopic: topic %s, subscriberCh %v, mode %s, validate %t", topic, subscriberCh, mode, validate)
 	if topic == "" {
 		return me.TopicData, fmt.Errorf("SubToTopic: topic not specified")
-	}
-	if validatorkey == nil && validate {
-		return me.TopicData, fmt.Errorf("SubToTopic: no validator key specified but validation requested")
 	}
 
 	if mode != "raw" && mode != "struct" {
@@ -528,11 +491,6 @@ func (me *MqttEngine) SubToTopic(topic string, validatorkey *ecdsa.PublicKey,
 	tdata.SubMode = mode
 	tdata.Validate = validate
 	tdata.SubscriberCh = subscriberCh
-
-	if validatorkey != nil {
-		tdata.ValidatorKey = validatorkey
-		log.Printf("MQTT Engine %s: added validatorkey for topic %s.", me.Creator, topic)
-	}
 
 	me.TopicData[topic] = tdata
 	log.Printf("MQTT Engine %s: added sub topic %s (validate %t, mode %s). Engine now has %d topics", me.Creator, topic, validate, mode, len(me.TopicData))
@@ -699,60 +657,31 @@ func PrintTapirMsg(tm TapirMsg, lg *log.Logger) {
 	lg.Println(columnize.SimpleFormat(out))
 }
 
-func FetchMqttValidatorKey(topic, filename string) (*ecdsa.PublicKey, error) {
-	log.Printf("FetchMqttValidatorKey: topic %s, filename %s", topic, filename)
-	var PubKey *ecdsa.PublicKey
-	if filename == "" {
-		log.Printf("MQTT validator public key for topic %s file not specified in config, subscribe not possible", topic)
-	} else {
-		filename = filepath.Clean(filename)
-		signingPub, err := os.ReadFile(filename)
-		if err != nil {
-			log.Printf("MQTT validator public key for topic %s: failed to read file %s: %v", topic, filename, err)
-			return nil, err
-		}
-
-		// Setup key used for creating the JWS
-		pemBlock, _ := pem.Decode(signingPub)
-		if pemBlock == nil || pemBlock.Type != "PUBLIC KEY" {
-			return nil, fmt.Errorf("failed to decode PEM block containing public key")
-		}
-		tmp, err := x509.ParsePKIXPublicKey(pemBlock.Bytes)
-		if err != nil {
-			log.Printf("MQTT validator public key for topic %s: failed to parse key: %v", topic, err)
-			return nil, err
-		}
-		PubKey = tmp.(*ecdsa.PublicKey)
-	}
-	return PubKey, nil
-}
-
 func FetchMqttSigningKey(topic, filename string) (*ecdsa.PrivateKey, error) {
 	log.Printf("FetchMqttSigningKey: topic %s, filename %s", topic, filename)
-	var PrivKey *ecdsa.PrivateKey
+	var PrivKey ecdsa.PrivateKey
 	if filename == "" {
 		log.Printf("MQTT signing private key for topic %s file not specified in config, publish not possible", topic)
+		return nil, fmt.Errorf("no signing key file specified")
 	} else {
 		filename = filepath.Clean(filename)
-		signingKey, err := os.ReadFile(filename)
+		keyFile, err := os.ReadFile(filename)
 		if err != nil {
-			log.Printf("MQTT signing private key for topic %s: failed to read file %s: %v", topic, filename, err)
-			return nil, err
+			return nil, fmt.Errorf("error reading signing key file")
 		}
 
-		// Setup key used for creating the JWS
-		pemBlock, _ := pem.Decode(signingKey)
-		if pemBlock == nil || pemBlock.Type != "EC PRIVATE KEY" {
-			return nil, fmt.Errorf("failed to decode PEM block containing private key")
-		}
-		tmp, err := x509.ParseECPrivateKey(pemBlock.Bytes)
+		keyParsed, err := jwk.ParseKey(keyFile)
 		if err != nil {
-			log.Printf("MQTT signing private key for topic %s: failed to parse key: %v", topic, err)
-			return nil, err
+			return nil, fmt.Errorf("error parsing signing key file")
 		}
-		PrivKey = tmp
+
+		err = keyParsed.Raw(&PrivKey)
+		if err != nil {
+			return nil, fmt.Errorf("error getting raw key from jwk")
+		}
 	}
-	return PrivKey, nil
+
+	return &PrivKey, nil
 }
 
 // MqttTopic returns the MQTT topic for a given common name and viper key.
