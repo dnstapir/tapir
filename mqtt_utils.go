@@ -531,8 +531,6 @@ func (me *MqttEngine) RemoveTopic(topic string) (map[string]TopicData, error) {
 			return me.TopicData, fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
 		}
 	}
-	// delete(me.SigningKeys, topic)
-	// delete(me.ValidatorKeys, topic)
 	delete(me.TopicData, topic)
 	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.TopicData))
 	return me.TopicData, nil
