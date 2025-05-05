@@ -330,7 +330,7 @@ type MqttEngineResponse struct {
 }
 
 type MqttDetails struct {
-	ValidatorKeys map[string]string // Never interested in values. Keep as map to have similar behavior as before
+	Topics        []string
 	Bootstrap     []string
 	BootstrapUrl  string
 	BootstrapKey  string
