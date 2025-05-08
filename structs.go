@@ -238,16 +238,16 @@ type MqttData struct {
 
 // TapirMsg is what is recieved over the MQTT bus.
 type TapirMsg struct {
-	SrcName  string `json:"src_name"` // must match a defined source
-	Creator  string // "spark"	|| "tapir-cli"
-	MsgType  string `json:"msg_type"`  // "observation", "reset", "global-config"...
-	ListType string `json:"list_type"` // "{allow|deny|doubt}list"
-	Added    []Domain
-	Removed  []Domain
-	Msg      string
+	SrcName  string     `json:"src_name"`  // must match a defined source
+	Creator  string     `json:"creator"`   // "spark"	|| "tapir-cli"
+	MsgType  string     `json:"msg_type"`  // "observation", "reset", "global-config"...
+	ListType string     `json:"list_type"` // "{allow|deny|doubt}list"
+	Added    []Domain   `json:"added"`
+	Removed  []Domain   `json:"removed"`
+	Msg      string     `json:"msg"`
 	//	GlobalConfig        GlobalConfig
 	//	TapirFunctionStatus TapirFunctionStatus
-	TimeStamp time.Time // time encoded in the payload by the sender, not touched by MQTT
+	TimeStamp time.Time `json:"timestamp"`// time encoded in the payload by the sender, not touched by MQTT
 	TimeStr   string    `json:"time_str"` // time string encoded in the payload by the sender, not touched by MQTT
 }
 
@@ -277,7 +277,7 @@ type GlobalConfigTopic struct {
 type Domain struct {
 	Name         string
 	TimeAdded    time.Time `json:"time_added"`
-	TTL          int       // in seconds
+	TTL          int       `json:"ttl"`      // in seconds
 	TagMask      TagMask   `json:"tag_mask"` // here is the bitfield
 	ExtendedTags []string  `json:"extended_tags"`
 	// Action  Action  // another bitfield: (NXDOMAIN, NODATA, DROP, REDIRECT)
