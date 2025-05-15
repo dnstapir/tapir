@@ -405,7 +405,10 @@ func enroll() {
 			panic(err)
 		}
 
-		resp, err := http.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader) //#nosec G107 -- URL read from a file that the user chooses with CLI args and that is assumed to be from a trusted source
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader) //#nosec G107 -- URL read from a file that the user chooses with CLI args and that is assumed to be from a trusted source
 		if err != nil {
 			panic(err)
 		}
@@ -593,7 +596,10 @@ func renew() {
 
 	payloadReader := bytes.NewReader(payloadJWS)
 
-	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader) // #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader) // #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
 	if err != nil {
 		panic(err)
 	}
