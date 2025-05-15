@@ -643,12 +643,12 @@ func writeToFile(filename, contents string) {
 
 	if err != nil {
 		fh, innerErr := os.CreateTemp("", "tapir-cli-tmp-")
-		fmt.Printf("WARNING, due to an error '%s' a temporary file '%s' will be used instead\n", err, fh.Name())
 
 		if innerErr != nil {
 			panic(err)
 		}
 		defer fh.Close()
+		fmt.Printf("WARNING, due to an error '%s' a temporary file '%s' will be used instead\n", err, fh.Name())
 
 		_, innerErr = fh.Write([]byte(contents))
 		if innerErr != nil {
