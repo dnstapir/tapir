@@ -173,27 +173,27 @@ func init() {
 }
 
 func enroll() {
-	sourcesFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_SOURCES)
+	sourcesFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_SOURCES))
 	if err != nil {
 		panic(err)
 	}
-	outputsFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_OUTPUTS)
+	outputsFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_OUTPUTS))
 	if err != nil {
 		panic(err)
 	}
-	policyFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_POLICY)
+	policyFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_POLICY))
 	if err != nil {
 		panic(err)
 	}
-	tapirPopFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_POP)
+	tapirPopFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_POP))
 	if err != nil {
 		panic(err)
 	}
-	tapirEdmFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_EDM)
+	tapirEdmFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_EDM))
 	if err != nil {
 		panic(err)
 	}
-	tapirCliFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_CLI)
+	tapirCliFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_CLI))
 	if err != nil {
 		panic(err)
 	}
@@ -201,23 +201,23 @@ func enroll() {
 	if err != nil {
 		panic(err)
 	}
-	caCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_CA_CRT)
+	caCertPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_CA_CRT))
 	if err != nil {
 		panic(err)
 	}
-	clientCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_CRT)
+	clientCertPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_TLS_CRT))
 	if err != nil {
 		panic(err)
 	}
-	clientKeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_KEY)
+	clientKeyPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_TLS_KEY))
 	if err != nil {
 		panic(err)
 	}
-	validationKeysPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_VALKEY_STORE)
+	validationKeysPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_VALKEY_STORE))
 	if err != nil {
 		panic(err)
 	}
-	signkeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_DATAKEY_PRIV)
+	signkeyPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_DATAKEY_PRIV))
 	if err != nil {
 		panic(err)
 	}
