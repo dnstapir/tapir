@@ -96,6 +96,7 @@ var RenewCmd = &cobra.Command{
 
 const (
 	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials" // #nosec G101 -- only used as flag name in CLI
+	FLAG_ENROLL_LOCAL         = "local-response"     // #nosec G101 -- only used as flag name in CLI
 	FLAG_ENROLL_CONFDIR       = "confdir"
 	FLAG_ENROLL_CERTDIR       = "certdir"
 	FLAG_RENEW_DATAKEY        = "renew-datakey"
@@ -117,6 +118,7 @@ const (
 	FILENAME_POP_POLICY      = "pop-policy.yaml"
 	FILENAME_TAPIR_POP       = "tapir-pop.yaml"
 	FILENAME_TAPIR_EDM       = "tapir-edm.toml"
+	FILENAME_TAPIR_CLI       = "tapir-edm.yaml"
 	URL_NODEMAN_API_PATH     = "api/v1/node"
 	CONTENT_TYPE_NODEMAN_API = "application/json"
 	JWK_KEY_ISS              = "iss"
@@ -126,6 +128,7 @@ var (
 	enrollConfdir       string
 	enrollCertdir       string
 	enrollCredsFilename string
+	enrollRespFilename  string
 	renewDatakey        string
 	renewClientKey      string
 	renewCaCertOut      string
@@ -134,8 +137,10 @@ var (
 
 func init() {
 	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNSTAPIR enrollment credentials")
+	EnrollCmd.Flags().StringVarP(&enrollRespFilename, FLAG_ENROLL_LOCAL, "L", "", "Use a response stored locally")
 	EnrollCmd.Flags().StringVarP(&enrollConfdir, FLAG_ENROLL_CONFDIR, "", DIRNAME_DEFAULT_CONFDIR, "Directory for storing configuration files")
 	EnrollCmd.Flags().StringVarP(&enrollCertdir, FLAG_ENROLL_CERTDIR, "", DIRNAME_DEFAULT_CERTDIR, "Directory for storing cryptographic material on disk")
+
 	err := EnrollCmd.MarkFlagRequired(FLAG_ENROLL_CREDENTIALS)
 	if err != nil {
 		panic(err)
@@ -168,23 +173,27 @@ func init() {
 }
 
 func enroll() {
-	sourcesFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_SOURCES)
+	sourcesFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_SOURCES))
 	if err != nil {
 		panic(err)
 	}
-	outputsFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_OUTPUTS)
+	outputsFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_OUTPUTS))
 	if err != nil {
 		panic(err)
 	}
-	policyFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_POP_POLICY)
+	policyFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_POP_POLICY))
 	if err != nil {
 		panic(err)
 	}
-	tapirPopFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_POP)
+	tapirPopFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_POP))
 	if err != nil {
 		panic(err)
 	}
-	tapirEdmFilename, err := filepath.Abs(enrollConfdir + "/" + FILENAME_TAPIR_EDM)
+	tapirEdmFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_EDM))
+	if err != nil {
+		panic(err)
+	}
+	tapirCliFilename, err := filepath.Abs(filepath.Join(enrollConfdir, FILENAME_TAPIR_CLI))
 	if err != nil {
 		panic(err)
 	}
@@ -192,23 +201,23 @@ func enroll() {
 	if err != nil {
 		panic(err)
 	}
-	caCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_CA_CRT)
+	caCertPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_CA_CRT))
 	if err != nil {
 		panic(err)
 	}
-	clientCertPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_CRT)
+	clientCertPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_TLS_CRT))
 	if err != nil {
 		panic(err)
 	}
-	clientKeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_TLS_KEY)
+	clientKeyPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_TLS_KEY))
 	if err != nil {
 		panic(err)
 	}
-	validationKeysPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_VALKEY_STORE)
+	validationKeysPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_VALKEY_STORE))
 	if err != nil {
 		panic(err)
 	}
-	signkeyPath, err := filepath.Abs(enrollCertdir + "/" + FILENAME_DATAKEY_PRIV)
+	signkeyPath, err := filepath.Abs(filepath.Join(enrollCertdir, FILENAME_DATAKEY_PRIV))
 	if err != nil {
 		panic(err)
 	}
@@ -224,30 +233,36 @@ func enroll() {
 		AggrecUrl:          "### EDIT add URL for sending aggregated data",
 	}
 
+	if !fileExists(enrollConfdir) {
+		panic(fmt.Sprintf("Config dir '%s' not found. Aborting...", enrollConfdir))
+	}
+	if !fileExists(cfg.CertdirPath) {
+		panic(fmt.Sprintf("Certdir '%s' not found. Aborting...", cfg.CertdirPath))
+	}
 	if fileExists(sourcesFilename) {
-		panic("Found existing source conf in current dir. Aborting...")
+		panic("Found existing source conf. Aborting...")
 	}
 	if fileExists(outputsFilename) {
-		panic("Found existing output conf in current dir. Aborting...")
+		panic("Found existing output conf. Aborting...")
 	}
 	if fileExists(policyFilename) {
-		panic("Found existing policy conf in current dir. Aborting...")
+		panic("Found existing policy conf. Aborting...")
 	}
 	if fileExists(tapirPopFilename) {
-		panic("Found existing tapir conf in current dir. Aborting...")
+		panic("Found existing POP conf. Aborting...")
 	}
 	if fileExists(tapirEdmFilename) {
-		panic("Found existing tapir conf in current dir. Aborting...")
+		panic("Found existing EDM conf. Aborting...")
+	}
+	if fileExists(tapirCliFilename) {
+		panic("Found existing EDM conf. Aborting...")
 	}
 	if fileExists(cfg.ClientCertPath) {
 		panic("Found an existing TLS client cert in certdir. Aborting...")
 	}
-    if fileExists(cfg.ClientKeyPath) {
-        panic("Found an existing TLS client key in certdir. Aborting...")
-    }
-    if fileExists(cfg.CaCertPath) {
-        panic("Found an existing CA cert in certdir. Aborting...")
-    }
+	if fileExists(cfg.CaCertPath) {
+		panic("Found an existing CA cert in certdir. Aborting...")
+	}
 	if fileExists(cfg.ValidationKeysPath) {
 		panic("Found existing validation keys in certdir. Aborting...")
 	}
@@ -344,57 +359,72 @@ func enroll() {
 		panic(err)
 	}
 
-	csr, err := genCsr(tlsKey, creds.Name)
-	if err != nil {
-		panic(err)
-	}
+	var body []byte
+	if enrollRespFilename != "" {
+		fmt.Printf("Using local copy '%s' of previous nodeman response\n", enrollRespFilename)
+		body, err = os.ReadFile(filepath.Clean(enrollRespFilename))
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		csr, err := genCsr(tlsKey, creds.Name)
+		if err != nil {
+			panic(err)
+		}
 
-	enrollmentKey, err := jwk.ParseKey(creds.Key)
-	if err != nil {
-		panic(err)
-	}
+		enrollmentKey, err := jwk.ParseKey(creds.Key)
+		if err != nil {
+			panic(err)
+		}
 
-	dataKeyPub, err := dataKey.PublicKey()
-	if err != nil {
-		panic(err)
-	}
+		dataKeyPub, err := dataKey.PublicKey()
+		if err != nil {
+			panic(err)
+		}
 
-	payload := enrollReqPayload{
-		Timestamp: time.Now(),
-		X509CSR:   csr,
-		PublicKey: dataKeyPub,
-	}
+		payload := enrollReqPayload{
+			Timestamp: time.Now(),
+			X509CSR:   csr,
+			PublicKey: dataKeyPub,
+		}
 
-	payloadJSON, err := json.Marshal(payload)
-	if err != nil {
-		panic(err)
-	}
+		payloadJSON, err := json.Marshal(payload)
+		if err != nil {
+			panic(err)
+		}
 
-	payloadJWS, err := jws.Sign(payloadJSON, jws.WithJSON(), jws.WithKey(dataKey.Algorithm(), dataKey), jws.WithKey(enrollmentKey.Algorithm(), enrollmentKey))
-	if err != nil {
-		panic(err)
-	}
+		payloadJWS, err := jws.Sign(payloadJSON, jws.WithJSON(), jws.WithKey(dataKey.Algorithm(), dataKey), jws.WithKey(enrollmentKey.Algorithm(), enrollmentKey))
+		if err != nil {
+			panic(err)
+		}
 
-	payloadReader := bytes.NewReader(payloadJWS)
+		payloadReader := bytes.NewReader(payloadJWS)
 
-	enrollURL, err := url.JoinPath(creds.NodemanURL.String(), URL_NODEMAN_API_PATH, creds.Name, "enroll")
-	if err != nil {
-		panic(err)
-	}
+		enrollURL, err := url.JoinPath(creds.NodemanURL.String(), URL_NODEMAN_API_PATH, creds.Name, "enroll")
+		if err != nil {
+			panic(err)
+		}
 
-	resp, err := http.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader) //#nosec G107 -- URL read from a file that the user chooses with CLI args and that is assumed to be from a trusted source
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Post(enrollURL, CONTENT_TYPE_NODEMAN_API, payloadReader) //#nosec G107 -- URL read from a file that the user chooses with CLI args and that is assumed to be from a trusted source
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		panic(fmt.Errorf("unexpected status code from enrollment: %d (%s)", resp.StatusCode, body))
+		if resp.StatusCode != http.StatusOK {
+			panic(fmt.Errorf("unexpected status code from enrollment: %d (%s)", resp.StatusCode, body))
+		}
+
+		respFilename := fmt.Sprintf("./nodeman-resp-%d.json", time.Now().Unix())
+		writeToFile(respFilename, string(body))
 	}
 
 	respPayload := enrollRespPayload{
@@ -403,6 +433,10 @@ func enroll() {
 	err = json.Unmarshal(body, &respPayload)
 	if err != nil {
 		panic(err)
+	}
+
+	if respPayload.Name != creds.Name {
+		fmt.Println("WARNING, EDGE name mismatch between credentials and response!")
 	}
 
 	writeToFile(cfg.ClientCertPath, respPayload.X509Certificate)
@@ -482,6 +516,22 @@ func enroll() {
 		panic(err)
 	}
 
+	tmlTapirCli, err := template.New("tapir-cli").Parse(CFG_TML_TAPIR_CLI)
+	if err != nil {
+		panic(err)
+	}
+
+	fhTapirCli, err := os.OpenFile(tapirCliFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		panic(err)
+	}
+	defer fhTapirCli.Close()
+
+	err = tmlTapirCli.Execute(fhTapirCli, cfg)
+	if err != nil {
+		panic(err)
+	}
+
 	writeToFile(outputsFilename, CFG_TML_POP_OUTPUTS) /* no templating needed right now */
 	writeToFile(policyFilename, CFG_TML_POP_POLICY)   /* no templating needed right now */
 }
@@ -546,7 +596,10 @@ func renew() {
 
 	payloadReader := bytes.NewReader(payloadJWS)
 
-	resp, err := http.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader) // #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Post(renewURL, CONTENT_TYPE_NODEMAN_API, payloadReader) // #nosec G107 -- URL read from keyfile that the user chooses with CLI args and that is assumed to be trusted by the user
 	if err != nil {
 		panic(err)
 	}
@@ -586,15 +639,21 @@ func fileExists(filename string) bool {
 
 func writeToFile(filename, contents string) {
 	fmt.Printf("Attempting to write to file '%s'\n", filename)
-	fh, err := os.Create(filepath.Clean(filename))
-	if err != nil {
-		panic(err)
-	}
-	defer fh.Close()
+	err := os.WriteFile(filepath.Clean(filename), []byte(contents), 0660)
 
-	_, err = fh.Write([]byte(contents))
 	if err != nil {
-		panic(err)
+		fh, innerErr := os.CreateTemp("", "tapir-cli-tmp-")
+
+		if innerErr != nil {
+			panic(err)
+		}
+		defer fh.Close()
+		fmt.Printf("WARNING, due to an error '%s' a temporary file '%s' will be used instead\n", err, fh.Name())
+
+		_, innerErr = fh.Write([]byte(contents))
+		if innerErr != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -801,4 +860,16 @@ disable-mqtt-filequeue = true
 minimiser-workers = 4
 disable-session-files = true
 well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
+`
+
+const CFG_TML_TAPIR_CLI = `
+cli:
+   tapir-pop:
+      url:    http://127.0.0.1:9099/api/v1
+      tlsurl: https://127.0.0.1:9098/api/v1
+      apikey: be-nice-to-a-bad-tempered-tapir
+
+certs:
+   certdir:	    {{.CertdirPath}}
+   cacertfile:	{{.CaCertPath}}
 `
