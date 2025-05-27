@@ -732,112 +732,112 @@ func genCsr(key *ecdsa.PrivateKey, name string) (string, error) {
 
 const CFG_TML_POP_OUTPUTS = `
 outputs:
-   rpz1:
-      downstream:	### EDIT, address and port (ip:port) of resolver to NOTIFY of RPZ changes
-      active:		true
+    rpz1:
+        downstream: ### EDIT address and port (ip:port) of resolver to NOTIFY of RPZ changes
+        active: true
 `
 
 const CFG_TML_POP_POLICY = `
 policy:
-   logfile:		/var/log/dnstapir/pop-policy.log
-   allowlist:
-      action:		PASSTHRU
-   denylist:
-      action:		NODATA
-   doubtlist:
-      numsources:
-         limit:		2
-         action:	NXDOMAIN
-      numtapirtags:
-         limit:		3
-         action:	NXDOMAIN
-      denytapir:
-         tags:		[ ]
-         action:	REDIRECT
+    logfile: /var/log/dnstapir/pop-policy.log
+    allowlist:
+        action: PASSTHRU
+    denylist:
+        action: NODATA
+    doubtlist:
+        numsources:
+            limit: 2
+            action: NXDOMAIN
+        numtapirtags:
+            limit: 3
+            action: NXDOMAIN
+        denytapir:
+            tags: []
+            action: REDIRECT
 `
 
 const CFG_TML_POP_SOURCES = `
 sources:
-   tapir1:
-      active:       true
-      name:         dns-tapir
-      description:  DNS TAPIR main intelligence feed
-      type:         doubtlist
-      source:       mqtt
-      topic:        {{.ObservationsTopic}}
-      format:       tapir-msg-v1
-      bootstrap:    []
-      bootstrapurl: https://%s/api/v1
-      bootstrapkey: be-nice-to-a-bad-tempered-tapir
+    tapir1:
+        active: true
+        name: dns-tapir
+        description: DNS TAPIR main intelligence feed
+        type: doubtlist
+        source: mqtt
+        topic: {{.ObservationsTopic}}
+        format: tapir-msg-v1
+        bootstrap: []
+        bootstrapurl: https://%s/api/v1
+        bootstrapkey: be-nice-to-a-bad-tempered-tapir
 `
 
 const CFG_TML_TAPIR_POP = `
 dnsengine:
-   addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
-   active:    true
-   name:      TAPIR-POP DNS Engine
-   logfile:	  /var/log/dnstapir/pop-dnsengine.log
+    addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
+    active: true
+    name: TAPIR-POP DNS Engine
+    logfile: /var/log/dnstapir/pop-dnsengine.log
 
 cli:
-   tapir-pop:
-      url:    https://127.0.0.1:9099/api/v1
-      tlsurl: https://127.0.0.1:9098/api/v1
-      apikey: be-nice-to-a-bad-tempered-tapir
+    tapir-pop:
+        url: https://127.0.0.1:9099/api/v1
+        tlsurl: https://127.0.0.1:9098/api/v1
+        apikey: be-nice-to-a-bad-tempered-tapir
 
 apiserver:
-   active:       true
-   name:         TAPIR-POP API Server
-   key:	         be-nice-to-a-bad-tempered-tapir
-   addresses:    [ 0.0.0.0:9099 ]
-   tlsaddresses: [ 0.0.0.0:9098 ]
+    active: true
+    name: TAPIR-POP API Server
+    key: be-nice-to-a-bad-tempered-tapir
+    addresses: [ 0.0.0.0:9099 ]
+    tlsaddresses: [ 0.0.0.0:9098 ]
 
 bootstrapserver:
-   active:       true
-   name:         TAPIR-POP Bootstrapserver
-   addresses:	 [ 0.0.0.0:5454 ]
-   tlsaddresses: [ 0.0.0.0:5455 ]
+    active: true
+    name: TAPIR-POP Bootstrapserver
+    addresses: [ 0.0.0.0:5454 ]
+    tlsaddresses: [ 0.0.0.0:5455 ]
 
 services:
-   reaper:
-      interval: 60
-   rpz:
-      zonename:		dnstapir.
-      serialcache:	/etc/dnstapir/pop/rpz-serial.yaml
-   refreshengine:
-      active:		true
-      name:		TAPIR-POP Source Refresher
+    reaper:
+        interval: 60
+    rpz:
+        zonename: dnstapir.
+        serialcache: /etc/dnstapir/pop/rpz-serial.yaml
+    refreshengine:
+        active: true
+        name: TAPIR-POP Source Refresher
 
 keystore:
-  path: {{.ValidationKeysPath}}
+    path: {{.ValidationKeysPath}}
 
 tapir:
-   mqtt:
-      logfile:		/var/log/dnstapir/pop-mqtt.log
-      server:		{{.MqttBroker}}
-      cacert:		{{.CaCertPath}}
-      clientcert:	{{.ClientCertPath}}
-      clientkey:	{{.ClientKeyPath}}
-      qos:		    0
+    mqtt:
+        logfile: /var/log/dnstapir/pop-mqtt.log
+        server: {{.MqttBroker}}
+        cacert: {{.CaCertPath}}
+        clientcert: {{.ClientCertPath}}
+        clientkey: {{.ClientKeyPath}}
+        qos: 0
 
-   config:
-     topic:		    {{.ConfigTopic}}
-     active: true
+    config:
+        topic: {{.ConfigTopic}}
+        active: true
 
-   status:
-      topic:		{{.StatusTopic}}
-      signingkey:	{{.SignkeyPath}}
+    status:
+        topic: {{.StatusTopic}}
+        signingkey: {{.SignkeyPath}}
 
 certs:
-   certdir:	    {{.CertdirPath}}
-   cacertfile:	{{.CaCertPath}}
-   tapir-pop:
-      cert:	{{.ClientCertPath}}
-      key:	{{.ClientKeyPath}}
+    certdir: {{.CertdirPath}}
+    cacertfile: {{.CaCertPath}}
+    tapir-pop:
+        cert: {{.ClientCertPath}}
+        key: {{.ClientKeyPath}}
 
 log:
-   file:	/var/log/dnstapir/tapir-pop.log
-   verbose: true
-   debug: true
+    file: /var/log/dnstapir/tapir-pop.log
+    verbose: true
+    debug: true
 `
 
 const CFG_TML_TAPIR_EDM = `
@@ -864,12 +864,12 @@ well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
 
 const CFG_TML_TAPIR_CLI = `
 cli:
-   tapir-pop:
-      url:    http://127.0.0.1:9099/api/v1
-      tlsurl: https://127.0.0.1:9098/api/v1
-      apikey: be-nice-to-a-bad-tempered-tapir
+    tapir-pop:
+        url: http://127.0.0.1:9099/api/v1
+        tlsurl: https://127.0.0.1:9098/api/v1
+        apikey: be-nice-to-a-bad-tempered-tapir
 
 certs:
-   certdir:	    {{.CertdirPath}}
-   cacertfile:	{{.CaCertPath}}
+    certdir: {{.CertdirPath}}
+    cacertfile: {{.CaCertPath}}
 `
