@@ -1,0 +1,9 @@
+cli:
+    tapir-pop:
+        url: http://127.0.0.1:9099/api/v1
+        tlsurl: https://127.0.0.1:9098/api/v1
+        apikey: be-nice-to-a-bad-tempered-tapir
+
+certs:
+    certdir: {{.CertdirPath}}
+    cacertfile: {{.CaCertPath}}

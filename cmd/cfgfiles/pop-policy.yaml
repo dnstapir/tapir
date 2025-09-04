@@ -1,0 +1,16 @@
+policy:
+    logfile: /var/log/dnstapir/pop-policy.log
+    allowlist:
+        action: PASSTHRU
+    denylist:
+        action: NODATA
+    doubtlist:
+        numsources:
+            limit: 2
+            action: NXDOMAIN
+        numtapirtags:
+            limit: 3
+            action: NXDOMAIN
+        denytapir:
+            tags: []
+            action: REDIRECT

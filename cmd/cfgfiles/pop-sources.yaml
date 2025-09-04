@@ -1,0 +1,12 @@
+sources:
+    tapir1:
+        active: true
+        name: dns-tapir
+        description: DNS TAPIR main intelligence feed
+        type: doubtlist
+        source: mqtt
+        topic: {{.ObservationsTopic}}
+        format: tapir-msg-v1
+        bootstrap: []
+        bootstrapurl: https://%s/api/v1
+        bootstrapkey: be-nice-to-a-bad-tempered-tapir
