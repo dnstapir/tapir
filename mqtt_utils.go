@@ -72,7 +72,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		return nil, fmt.Errorf("error reading keystorage file")
 	}
 
-	_, caCertPool, clientCert, err := FetchTapirClientCert(lg, statusch)
+	_, caCertPool, _, err := FetchTapirClientCert(lg, statusch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch client certificate: %w", err)
 	}
@@ -81,7 +81,6 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		Server:       server,
 		Creator:      creator,
 		ClientID:     clientid,
-		ClientCert:   *clientCert,
 		CaCertPool:   caCertPool,
 		TopicData:    make(map[string]TopicData),
 		PrefixTopics: make(map[string]bool),
@@ -112,6 +111,14 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 	me.PublishChan = make(chan MqttPkgOut, 10)  // Here clients send us messages to pub
 	me.SubscribeChan = make(chan MqttPkgIn, 10) // Here we send clients messages that arrived via sub
 
+	certReloader := func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		_, _, clientCert, err := FetchTapirClientCert(lg, statusch)
+		if err != nil {
+			return nil, err
+		}
+		return clientCert, nil
+	}
+
 	StartEngine := func(resp chan MqttEngineResponse) error {
 		var ctx context.Context
 		// me.Cancel is used to tell the paho connection manager to stop
@@ -137,9 +144,9 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		apcConfig := autopaho.ClientConfig{
 			ServerUrls: []*url.URL{serverURL},
 			TlsCfg: &tls.Config{
-				RootCAs:      me.CaCertPool,
-				Certificates: []tls.Certificate{me.ClientCert},
-				MinVersion:   tls.VersionTLS13,
+				RootCAs:              me.CaCertPool,
+				GetClientCertificate: certReloader,
+				MinVersion:           tls.VersionTLS13,
 			},
 			KeepAlive:                     20,
 			CleanStartOnInitialConnection: false,

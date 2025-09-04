@@ -357,7 +357,6 @@ type WBGlist struct {
 	Names       map[string]TapirName // XXX: same data as in ZoneData.RpzData, should only keep one
 	ReaperData  map[time.Time]map[string]bool
 	// Trie        trie.Trie
-    BackupFile  string
 }
 
 type TapirName struct {
