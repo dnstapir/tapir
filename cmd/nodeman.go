@@ -487,7 +487,7 @@ func enroll() {
 		cfg.AggrecUrl = respPayload.AggrecUrl
 	}
 
-	tmlSources, err := template.New("sources").Parse(cfgTmplRPopSources)
+	tmlSources, err := template.New("sources").Parse(cfgTmplPopSources)
 	if err != nil {
 		panic(err)
 	}
