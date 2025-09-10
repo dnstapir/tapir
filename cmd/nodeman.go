@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	_ "embed"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -93,6 +94,24 @@ var RenewCmd = &cobra.Command{
 		renew()
 	},
 }
+
+//go:embed cfgfiles/tapir-edm.toml
+var cfgTmplTapirEdm string
+
+//go:embed cfgfiles/tapir-pop.yaml
+var cfgTmplTapirPop string
+
+//go:embed cfgfiles/tapir-cli.yaml
+var cfgTmplTapirCli string
+
+//go:embed cfgfiles/pop-sources.yaml
+var cfgTmplPopSources string
+
+//go:embed cfgfiles/pop-outputs.yaml
+var cfgTmplPopOutputs string
+
+//go:embed cfgfiles/pop-policy.yaml
+var cfgTmplPopPolicy string
 
 const (
 	FLAG_ENROLL_CREDENTIALS   = "enroll-credentials" // #nosec G101 -- only used as flag name in CLI
@@ -468,7 +487,7 @@ func enroll() {
 		cfg.AggrecUrl = respPayload.AggrecUrl
 	}
 
-	tmlSources, err := template.New("sources").Parse(CFG_TML_POP_SOURCES)
+	tmlSources, err := template.New("sources").Parse(cfgTmplRPopSources)
 	if err != nil {
 		panic(err)
 	}
@@ -484,7 +503,7 @@ func enroll() {
 		panic(err)
 	}
 
-	tmlTapirPop, err := template.New("tapir-pop").Parse(CFG_TML_TAPIR_POP)
+	tmlTapirPop, err := template.New("tapir-pop").Parse(cfgTmplTapirPop)
 	if err != nil {
 		panic(err)
 	}
@@ -500,7 +519,7 @@ func enroll() {
 		panic(err)
 	}
 
-	tmlTapirEdm, err := template.New("tapir-edm").Parse(CFG_TML_TAPIR_EDM)
+	tmlTapirEdm, err := template.New("tapir-edm").Parse(cfgTmplTapirEdm)
 	if err != nil {
 		panic(err)
 	}
@@ -516,7 +535,7 @@ func enroll() {
 		panic(err)
 	}
 
-	tmlTapirCli, err := template.New("tapir-cli").Parse(CFG_TML_TAPIR_CLI)
+	tmlTapirCli, err := template.New("tapir-cli").Parse(cfgTmplTapirCli)
 	if err != nil {
 		panic(err)
 	}
@@ -532,8 +551,8 @@ func enroll() {
 		panic(err)
 	}
 
-	writeToFile(outputsFilename, CFG_TML_POP_OUTPUTS) /* no templating needed right now */
-	writeToFile(policyFilename, CFG_TML_POP_POLICY)   /* no templating needed right now */
+	writeToFile(outputsFilename, cfgTmplPopOutputs) /* no templating needed right now */
+	writeToFile(policyFilename, cfgTmplPopPolicy)   /* no templating needed right now */
 }
 
 func renew() {
@@ -729,147 +748,3 @@ func genCsr(key *ecdsa.PrivateKey, name string) (string, error) {
 
 	return string(pem.EncodeToMemory(csrBlock)), nil
 }
-
-const CFG_TML_POP_OUTPUTS = `
-outputs:
-    rpz1:
-        downstream: ### EDIT address and port (ip:port) of resolver to NOTIFY of RPZ changes
-        active: true
-`
-
-const CFG_TML_POP_POLICY = `
-policy:
-    logfile: /var/log/dnstapir/pop-policy.log
-    allowlist:
-        action: PASSTHRU
-    denylist:
-        action: NODATA
-    doubtlist:
-        numsources:
-            limit: 2
-            action: NXDOMAIN
-        numtapirtags:
-            limit: 3
-            action: NXDOMAIN
-        denytapir:
-            tags: []
-            action: REDIRECT
-`
-
-const CFG_TML_POP_SOURCES = `
-sources:
-    tapir1:
-        active: true
-        name: dns-tapir
-        description: DNS TAPIR main intelligence feed
-        type: doubtlist
-        source: mqtt
-        topic: {{.ObservationsTopic}}
-        format: tapir-msg-v1
-        bootstrap: []
-        bootstrapurl: https://%s/api/v1
-        bootstrapkey: be-nice-to-a-bad-tempered-tapir
-`
-
-const CFG_TML_TAPIR_POP = `
-dnsengine:
-    addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
-    active: true
-    name: TAPIR-POP DNS Engine
-    logfile: /var/log/dnstapir/pop-dnsengine.log
-
-cli:
-    tapir-pop:
-        url: https://127.0.0.1:9099/api/v1
-        tlsurl: https://127.0.0.1:9098/api/v1
-        apikey: be-nice-to-a-bad-tempered-tapir
-
-apiserver:
-    active: true
-    name: TAPIR-POP API Server
-    key: be-nice-to-a-bad-tempered-tapir
-    addresses: [ 0.0.0.0:9099 ]
-    tlsaddresses: [ 0.0.0.0:9098 ]
-
-bootstrapserver:
-    active: true
-    name: TAPIR-POP Bootstrapserver
-    addresses: [ 0.0.0.0:5454 ]
-    tlsaddresses: [ 0.0.0.0:5455 ]
-
-services:
-    reaper:
-        interval: 60
-    rpz:
-        zonename: dnstapir.
-        serialcache: /etc/dnstapir/pop/rpz-serial.yaml
-    refreshengine:
-        active: true
-        name: TAPIR-POP Source Refresher
-
-keystore:
-    path: {{.ValidationKeysPath}}
-
-tapir:
-    mqtt:
-        logfile: /var/log/dnstapir/pop-mqtt.log
-        server: {{.MqttBroker}}
-        cacert: {{.CaCertPath}}
-        clientcert: {{.ClientCertPath}}
-        clientkey: {{.ClientKeyPath}}
-        qos: 0
-
-    config:
-        topic: {{.ConfigTopic}}
-        active: true
-
-    status:
-        topic: {{.StatusTopic}}
-        signingkey: {{.SignkeyPath}}
-
-certs:
-    certdir: {{.CertdirPath}}
-    cacertfile: {{.CaCertPath}}
-    tapir-pop:
-        cert: {{.ClientCertPath}}
-        key: {{.ClientKeyPath}}
-
-log:
-    file: /var/log/dnstapir/tapir-pop.log
-    verbose: true
-    debug: true
-`
-
-const CFG_TML_TAPIR_EDM = `
-cryptopan-key = ### EDIT Choose a good secret and put it here
-input-tcp = ### EDIT add ip+port of resolver's DNSTAP interface here
-mqtt-signing-key-file = "{{.SignkeyPath}}"
-mqtt-client-cert-file = "{{.ClientCertPath}}"
-mqtt-client-key-file = "{{.ClientKeyPath}}"
-http-signing-key-file = "{{.SignkeyPath}}"
-http-client-cert-file = "{{.ClientCertPath}}"
-http-client-key-file = "{{.ClientKeyPath}}"
-mqtt-ca-file = "{{.CaCertPath}}"
-mqtt-server = "{{.MqttBroker}}"
-http-url = "{{.AggrecUrl}}"
-ignored-client-ips-file = "/etc/dnstapir/edm/ignored-ips"
-ignored-question-names-file = "/etc/dnstapir/edm/ignored.dawg"
-debug-enable-blockprofiling = false
-debug-enable-mutexprofiling = false
-disable-mqtt-filequeue = true
-minimiser-workers = 4
-disable-session-files = true
-well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
-`
-
-const CFG_TML_TAPIR_CLI = `
-cli:
-    tapir-pop:
-        url: http://127.0.0.1:9099/api/v1
-        tlsurl: https://127.0.0.1:9098/api/v1
-        apikey: be-nice-to-a-bad-tempered-tapir
-
-certs:
-    certdir: {{.CertdirPath}}
-    cacertfile: {{.CaCertPath}}
-`

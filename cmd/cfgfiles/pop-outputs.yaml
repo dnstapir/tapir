@@ -1,0 +1,4 @@
+outputs:
+    rpz1:
+        downstream: ### EDIT address and port (ip:port) of resolver to NOTIFY of RPZ changes
+        active: true

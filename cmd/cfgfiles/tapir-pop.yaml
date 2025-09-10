@@ -1,0 +1,66 @@
+dnsengine:
+    addresses: [ ### EDIT Addresses (ip:port) to listen to for RPZ XFR requests ]
+    active: true
+    name: TAPIR-POP DNS Engine
+    logfile: /var/log/dnstapir/pop-dnsengine.log
+
+cli:
+    tapir-pop:
+        url: https://127.0.0.1:9099/api/v1
+        tlsurl: https://127.0.0.1:9098/api/v1
+        apikey: be-nice-to-a-bad-tempered-tapir
+
+apiserver:
+    active: true
+    name: TAPIR-POP API Server
+    key: be-nice-to-a-bad-tempered-tapir
+    addresses: [ 0.0.0.0:9099 ]
+    tlsaddresses: [ 0.0.0.0:9098 ]
+
+bootstrapserver:
+    active: true
+    name: TAPIR-POP Bootstrapserver
+    addresses: [ 0.0.0.0:5454 ]
+    tlsaddresses: [ 0.0.0.0:5455 ]
+
+services:
+    reaper:
+        interval: 60
+    rpz:
+        zonename: dnstapir.
+        serialcache: /etc/dnstapir/pop/rpz-serial.yaml
+    refreshengine:
+        active: true
+        name: TAPIR-POP Source Refresher
+
+keystore:
+    path: {{.ValidationKeysPath}}
+
+tapir:
+    mqtt:
+        logfile: /var/log/dnstapir/pop-mqtt.log
+        server: {{.MqttBroker}}
+        cacert: {{.CaCertPath}}
+        clientcert: {{.ClientCertPath}}
+        clientkey: {{.ClientKeyPath}}
+        qos: 0
+
+    config:
+        topic: {{.ConfigTopic}}
+        active: true
+
+    status:
+        topic: {{.StatusTopic}}
+        signingkey: {{.SignkeyPath}}
+
+certs:
+    certdir: {{.CertdirPath}}
+    cacertfile: {{.CaCertPath}}
+    tapir-pop:
+        cert: {{.ClientCertPath}}
+        key: {{.ClientKeyPath}}
+
+log:
+    file: /var/log/dnstapir/tapir-pop.log
+    verbose: true
+    debug: true
