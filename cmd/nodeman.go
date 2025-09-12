@@ -137,7 +137,7 @@ const (
 	FILENAME_POP_POLICY      = "pop-policy.yaml"
 	FILENAME_TAPIR_POP       = "tapir-pop.yaml"
 	FILENAME_TAPIR_EDM       = "tapir-edm.toml"
-	FILENAME_TAPIR_CLI       = "tapir-edm.yaml"
+	FILENAME_TAPIR_CLI       = "tapir-cli.yaml"
 	URL_NODEMAN_API_PATH     = "api/v1/node"
 	CONTENT_TYPE_NODEMAN_API = "application/json"
 	JWK_KEY_ISS              = "iss"
