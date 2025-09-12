@@ -274,7 +274,7 @@ func enroll() {
 		panic("Found existing EDM conf. Aborting...")
 	}
 	if fileExists(tapirCliFilename) {
-		panic("Found existing EDM conf. Aborting...")
+		panic("Found existing CLI conf. Aborting...")
 	}
 	if fileExists(cfg.ClientCertPath) {
 		panic("Found an existing TLS client cert in certdir. Aborting...")
@@ -492,7 +492,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhSources, err := os.OpenFile(sourcesFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhSources, err := os.OpenFile(sourcesFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -508,7 +508,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirPop, err := os.OpenFile(tapirPopFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirPop, err := os.OpenFile(tapirPopFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -524,7 +524,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirEdm, err := os.OpenFile(tapirEdmFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirEdm, err := os.OpenFile(tapirEdmFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -540,7 +540,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirCli, err := os.OpenFile(tapirCliFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirCli, err := os.OpenFile(tapirCliFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
