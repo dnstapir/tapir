@@ -137,7 +137,7 @@ const (
 	FILENAME_POP_POLICY      = "pop-policy.yaml"
 	FILENAME_TAPIR_POP       = "tapir-pop.yaml"
 	FILENAME_TAPIR_EDM       = "tapir-edm.toml"
-	FILENAME_TAPIR_CLI       = "tapir-edm.yaml"
+	FILENAME_TAPIR_CLI       = "tapir-cli.yaml"
 	URL_NODEMAN_API_PATH     = "api/v1/node"
 	CONTENT_TYPE_NODEMAN_API = "application/json"
 	JWK_KEY_ISS              = "iss"
@@ -274,7 +274,7 @@ func enroll() {
 		panic("Found existing EDM conf. Aborting...")
 	}
 	if fileExists(tapirCliFilename) {
-		panic("Found existing EDM conf. Aborting...")
+		panic("Found existing CLI conf. Aborting...")
 	}
 	if fileExists(cfg.ClientCertPath) {
 		panic("Found an existing TLS client cert in certdir. Aborting...")
@@ -492,7 +492,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhSources, err := os.OpenFile(sourcesFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhSources, err := os.OpenFile(sourcesFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -508,7 +508,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirPop, err := os.OpenFile(tapirPopFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirPop, err := os.OpenFile(tapirPopFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -524,7 +524,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirEdm, err := os.OpenFile(tapirEdmFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirEdm, err := os.OpenFile(tapirEdmFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
@@ -540,7 +540,7 @@ func enroll() {
 		panic(err)
 	}
 
-	fhTapirCli, err := os.OpenFile(tapirCliFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+	fhTapirCli, err := os.OpenFile(tapirCliFilename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		panic(err)
 	}
