@@ -1,5 +1,5 @@
-cryptopan-key = ### EDIT Choose a good secret and put it here
-input-tcp = ### EDIT add ip+port of resolver's DNSTAP interface here
+cryptopan-key = ### EDIT Set a good secret and put it here, e.g. "somesecret"
+input-tcp = ### EDIT Set "ip:port" where EDM should listen for DNSTAP packets, e.g. "127.0.0.1:53535"
 mqtt-signing-key-file = "{{.SignkeyPath}}"
 mqtt-client-cert-file = "{{.ClientCertPath}}"
 mqtt-client-key-file = "{{.ClientKeyPath}}"
@@ -11,8 +11,6 @@ mqtt-server = "{{.MqttBroker}}"
 http-url = "{{.AggrecUrl}}"
 ignored-client-ips-file = "/etc/dnstapir/edm/ignored-ips"
 ignored-question-names-file = "/etc/dnstapir/edm/ignored.dawg"
-debug-enable-blockprofiling = false
-debug-enable-mutexprofiling = false
 disable-mqtt-filequeue = true
 minimiser-workers = 4
 disable-session-files = true
