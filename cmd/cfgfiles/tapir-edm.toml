@@ -11,7 +11,6 @@ mqtt-server = "{{.MqttBroker}}"
 http-url = "{{.AggrecUrl}}"
 ignored-client-ips-file = "/etc/dnstapir/edm/ignored-ips"
 ignored-question-names-file = "/etc/dnstapir/edm/ignored.dawg"
-disable-mqtt-filequeue = true
 minimiser-workers = 4
 disable-session-files = true
 well-known-domains-file = "/etc/dnstapir/edm/well-known-domains.dawg"
