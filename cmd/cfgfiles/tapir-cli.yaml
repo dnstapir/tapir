@@ -7,3 +7,5 @@ cli:
 certs:
     certdir: {{.CertdirPath}}
     cacertfile: {{.CaCertPath}}
+    cert: {{.ClientCertPath}}
+    key: {{.ClientKeyPath}}
