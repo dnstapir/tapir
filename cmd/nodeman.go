@@ -95,13 +95,13 @@ var RenewCmd = &cobra.Command{
 	},
 }
 
-//go:embed cfgfiles/tapir-edm.toml
+//go:embed cfgfiles/dnstapir-edm.toml
 var cfgTmplTapirEdm string
 
-//go:embed cfgfiles/tapir-pop.yaml
+//go:embed cfgfiles/dnstapir-pop.yaml
 var cfgTmplTapirPop string
 
-//go:embed cfgfiles/tapir-cli.yaml
+//go:embed cfgfiles/dnstapir-cli.yaml
 var cfgTmplTapirCli string
 
 //go:embed cfgfiles/pop-sources.yaml
@@ -135,9 +135,9 @@ const (
 	FILENAME_POP_SOURCES     = "pop-sources.yaml"
 	FILENAME_POP_OUTPUTS     = "pop-outputs.yaml"
 	FILENAME_POP_POLICY      = "pop-policy.yaml"
-	FILENAME_TAPIR_POP       = "tapir-pop.yaml"
-	FILENAME_TAPIR_EDM       = "tapir-edm.toml"
-	FILENAME_TAPIR_CLI       = "tapir-cli.yaml"
+	FILENAME_TAPIR_POP       = "dnstapir-pop.yaml"
+	FILENAME_TAPIR_EDM       = "dnstapir-edm.toml"
+	FILENAME_TAPIR_CLI       = "dnstapir-cli.yaml"
 	URL_NODEMAN_API_PATH     = "api/v1/node"
 	CONTENT_TYPE_NODEMAN_API = "application/json"
 	JWK_KEY_ISS              = "iss"
@@ -155,7 +155,7 @@ var (
 )
 
 func init() {
-	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNSTAPIR enrollment credentials")
+	EnrollCmd.Flags().StringVarP(&enrollCredsFilename, FLAG_ENROLL_CREDENTIALS, "c", "", "DNS TAPIR enrollment credentials")
 	EnrollCmd.Flags().StringVarP(&enrollRespFilename, FLAG_ENROLL_LOCAL, "L", "", "Use a response stored locally")
 	EnrollCmd.Flags().StringVarP(&enrollConfdir, FLAG_ENROLL_CONFDIR, "", DIRNAME_DEFAULT_CONFDIR, "Directory for storing configuration files")
 	EnrollCmd.Flags().StringVarP(&enrollCertdir, FLAG_ENROLL_CERTDIR, "", DIRNAME_DEFAULT_CERTDIR, "Directory for storing cryptographic material on disk")
@@ -661,7 +661,7 @@ func writeToFile(filename, contents string) {
 	err := os.WriteFile(filepath.Clean(filename), []byte(contents), 0660)
 
 	if err != nil {
-		fh, innerErr := os.CreateTemp("", "tapir-cli-tmp-")
+		fh, innerErr := os.CreateTemp("", "dnstapir-cli-tmp-")
 
 		if innerErr != nil {
 			panic(err)
