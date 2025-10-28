@@ -61,6 +61,6 @@ certs:
         key: {{.ClientKeyPath}}
 
 log:
-    file: /var/log/dnstapir/tapir-pop.log
+    file: /var/log/dnstapir/dnstapir-pop.log
     verbose: true
     debug: true
