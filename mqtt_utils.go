@@ -124,23 +124,6 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		// me.Cancel is used to tell the paho connection manager to stop
 		ctx, me.Cancel = context.WithCancel(context.Background())
 
-		var subs []paho.SubscribeOptions
-		if me.CanSubscribe {
-			nolocal := false
-			for topic, data := range me.TopicData {
-				// if data.ValidatorKey != nil {
-				if data.SubMode != "" {
-					lg.Printf("MQTT Engine: subscribing to topic %s with mode %s, qos: %d", topic, data.SubMode, me.QoS)
-					subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: nolocal})
-				}
-			}
-
-			// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
-			// for _, v := range subs {
-			// 	lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
-			// }
-		}
-
 		apcConfig := autopaho.ClientConfig{
 			ServerUrls: []*url.URL{serverURL},
 			TlsCfg: &tls.Config{
@@ -153,6 +136,24 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 			SessionExpiryInterval:         60,
 			OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 				lg.Printf("MQTT Engine %s: MQTT connection up", me.Creator)
+
+		        var subs []paho.SubscribeOptions
+		        if me.CanSubscribe {
+					nolocal := false
+					for topic, data := range me.TopicData {
+						// if data.ValidatorKey != nil {
+						if data.SubMode != "" {
+							lg.Printf("MQTT Engine: subscribing to topic %s with mode %s, qos: %d", topic, data.SubMode, me.QoS)
+							subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: nolocal})
+						}
+					}
+
+					// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
+					// for _, v := range subs {
+					// 	lg.Printf("MQTT Engine: subscribing to topic %s", v.Topic)
+					// }
+		        }
+
 				if subs != nil {
 					lg.Printf("MQTT Engine %s: subscribing to topics: %v", me.Creator, subs)
 					sa, err := cm.Subscribe(context.Background(), &paho.Subscribe{
