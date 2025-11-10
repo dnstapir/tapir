@@ -140,6 +140,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 		        var subs []paho.SubscribeOptions
 		        if me.CanSubscribe {
 					nolocal := false
+                    me.DataMu.Lock()
 					for topic, data := range me.TopicData {
 						// if data.ValidatorKey != nil {
 						if data.SubMode != "" {
@@ -147,6 +148,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 							subs = append(subs, paho.SubscribeOptions{Topic: topic, QoS: byte(me.QoS), NoLocal: nolocal})
 						}
 					}
+                    me.DataMu.Unlock()
 
 					// log.Printf("MQTT Engine: there are %d topics to subscribe to", len(subs))
 					// for _, v := range subs {
@@ -310,6 +312,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				}
 
 				var payload []byte
+                me.DataMu.Lock()
 				td := me.TopicData[outbox.Topic]
 				// signingkey := me.SigningKeys[outbox.Topic]
 				if td.Sign {
@@ -330,6 +333,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 					payload = buf.Bytes()
 					lg.Printf("MQTT Engine %s: not signing raw message being sent to topic %s", me.Creator, outbox.Topic)
 				}
+                me.DataMu.Unlock()
 
 				mqttMsg := paho.Publish{
 					Topic:   outbox.Topic,
@@ -346,9 +350,11 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				fmt.Printf("MQTT Engine %s: publish qos: %d, response: %+v\n", me.Creator, me.QoS, pubresponse)
 				dump.P(pubresponse)
 
+                me.DataMu.Lock()
 				td.PubMsgs++
 				td.LatestPub = time.Now()
 				me.TopicData[outbox.Topic] = td
+                me.DataMu.Unlock()
 				if GlobalCF.Debug {
 					lg.Printf("MQTT Engine %s: sent message on topic %s: %s", me.Creator, outbox.Topic, string(payload))
 				}
@@ -366,9 +372,13 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 					lg.Printf("MQTT Engine %s: error fetching topic data for topic %s: %v", me.Creator, inbox.Packet.Topic, err)
 					continue
 				}
+                me.DataMu.Lock()
 				td.SubMsgs++
 				td.LatestSub = time.Now()
+                validate := td.Validate
+                subCh := td.SubscriberCh
 				me.TopicData[td.Topic] = td
+                me.DataMu.Unlock()
 
 				mpi := MqttPkgIn{
 					TimeStamp: time.Now(),
@@ -376,8 +386,7 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 					Payload:   inbox.Packet.Payload,
 					Validated: false,
 				}
-
-				if td.Validate {
+				if validate {
 					payload, err := jws.Verify(inbox.Packet.Payload, jws.WithKeySet(me.Keystore))
 					if err != nil {
 						mpi.Error = true
@@ -393,9 +402,9 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 				} else {
 					lg.Printf("MQTT Engine %s: unvalidated message: %s", me.Creator, inbox.Packet.Payload)
 				}
-				lg.Printf("MQTT Engine td.SubscriberCh: %+v", td.SubscriberCh)
-				if td.SubscriberCh != nil {
-					td.SubscriberCh <- mpi
+				lg.Printf("MQTT Engine td.SubscriberCh: %+v", subCh)
+				if subCh != nil {
+					subCh <- mpi
 				} else {
 					lg.Printf("MQTT Engine %s: no subscriber channel for topic %s. Dropping message.", me.Creator, inbox.Packet.Topic)
 				}
@@ -422,18 +431,19 @@ func NewMqttEngine(creator, clientid string, pubsub uint8, statusch chan Compone
 	return &me, nil
 }
 
-func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mode string, sign bool) (map[string]TopicData, error) {
+func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mode string, sign bool) error {
 	if topic == "" {
-		return me.TopicData, fmt.Errorf("PubToTopic: topic not specified")
+		return fmt.Errorf("PubToTopic: topic not specified")
 	}
 	if signingkey == nil && sign {
-		return me.TopicData, fmt.Errorf("PubToTopic: no signing key specified and signing requested")
+		return fmt.Errorf("PubToTopic: no signing key specified and signing requested")
 	}
 
 	if mode != "raw" && mode != "struct" {
-		return me.TopicData, fmt.Errorf("PubToTopic: unknown mode: %s", mode)
+		return fmt.Errorf("PubToTopic: unknown mode: %s", mode)
 	}
 
+    me.DataMu.Lock()
 	if _, exist := me.TopicData[topic]; !exist {
 		me.TopicData[topic] = TopicData{}
 	}
@@ -448,6 +458,8 @@ func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mod
 	}
 
 	me.TopicData[topic] = tdata
+    topicDataLen := len(me.TopicData)
+    me.DataMu.Unlock()
 
 	log.Printf("MQTT Engine %s: added pub topic %s. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
 
@@ -461,34 +473,35 @@ func (me *MqttEngine) PubToTopic(topic string, signingkey *ecdsa.PrivateKey, mod
 				},
 			},
 		}); err != nil {
-			return me.TopicData, fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
+			return fmt.Errorf("AddTopic: failed to subscribe to topic %s: %v", topic, err)
 		}
-		log.Printf("MQTT Engine %s: added topic %s to running MQTT Engine. Engine now has %d topics", me.Creator, topic, len(me.TopicData))
+		log.Printf("MQTT Engine %s: added topic %s to running MQTT Engine. Engine now has %d topics", me.Creator, topic, topicDataLen)
 	}
 
-	return me.TopicData, nil
+	return nil
 }
 
 func (me *MqttEngine) SubToTopic(topic string,
 	subscriberCh chan MqttPkgIn, mode string, validate bool,
-) (map[string]TopicData, error) {
+) error {
 	log.Printf("MQTT Engine: SubToTopic: topic %s, subscriberCh %v, mode %s, validate %t", topic, subscriberCh, mode, validate)
 	if topic == "" {
-		return me.TopicData, fmt.Errorf("SubToTopic: topic not specified")
+		return fmt.Errorf("SubToTopic: topic not specified")
 	}
 
 	if mode != "raw" && mode != "struct" {
-		return me.TopicData, fmt.Errorf("SubToTopic: unknown mode: %s", mode)
+		return fmt.Errorf("SubToTopic: unknown mode: %s", mode)
 	}
 
 	if subscriberCh == nil {
-		return me.TopicData, fmt.Errorf("SubToTopic: subscriber channel not specified")
+		return fmt.Errorf("SubToTopic: subscriber channel not specified")
 	}
 
 	if strings.HasSuffix(topic, "/#") {
 		me.PrefixTopics[strings.TrimSuffix(topic, "#")] = true
 	}
 
+    me.DataMu.Lock()
 	if _, exist := me.TopicData[topic]; !exist {
 		me.TopicData[topic] = TopicData{
 			Topic: topic,
@@ -501,7 +514,9 @@ func (me *MqttEngine) SubToTopic(topic string,
 	tdata.SubscriberCh = subscriberCh
 
 	me.TopicData[topic] = tdata
-	log.Printf("MQTT Engine %s: added sub topic %s (validate %t, mode %s). Engine now has %d topics", me.Creator, topic, validate, mode, len(me.TopicData))
+    topicDataLen := len(me.TopicData)
+    me.DataMu.Unlock()
+	log.Printf("MQTT Engine %s: added sub topic %s (validate %t, mode %s). Engine now has %d topics", me.Creator, topic, validate, mode, topicDataLen)
 
 	// does the MqttEngine already have a connection manager (i.e. is it already running)
 	if me.ConnectionManager != nil {
@@ -513,7 +528,7 @@ func (me *MqttEngine) SubToTopic(topic string,
 				},
 			},
 		}); err != nil {
-			return me.TopicData, fmt.Errorf("SubToTopic: failed to subscribe to topic %s: %v", topic, err)
+			return fmt.Errorf("SubToTopic: failed to subscribe to topic %s: %v", topic, err)
 		}
 		var topics, prefixTopics []string
 		for t := range me.TopicData {
@@ -523,25 +538,29 @@ func (me *MqttEngine) SubToTopic(topic string,
 			prefixTopics = append(prefixTopics, t)
 		}
 		log.Printf("MQTT Engine %s: added sub topic %s to running MQTT Engine.", me.Creator, topic)
-		log.Printf("Engine now has %d topics: %v and %d prefix topics: %v", len(me.TopicData), topics, len(me.PrefixTopics), prefixTopics)
+		log.Printf("Engine now has %d topics: %v and %d prefix topics: %v", topicDataLen, topics, len(me.PrefixTopics), prefixTopics)
 	}
 
+    me.DataMu.Lock()
 	log.Printf("MQTT Engine %s: TopicData for topic %s: %+v", me.Creator, topic, me.TopicData[topic])
+    me.DataMu.Unlock()
 
-	return me.TopicData, nil
+	return nil
 }
 
-func (me *MqttEngine) RemoveTopic(topic string) (map[string]TopicData, error) {
+func (me *MqttEngine) RemoveTopic(topic string) error {
 	if me.ConnectionManager != nil {
 		if _, err := me.ConnectionManager.Unsubscribe(context.Background(), &paho.Unsubscribe{
 			Topics: []string{topic},
 		}); err != nil {
-			return me.TopicData, fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
+			return fmt.Errorf("RemoveTopic: failed to unsubscribe from topic %s: %v", topic, err)
 		}
 	}
+    me.DataMu.Lock()
 	delete(me.TopicData, topic)
 	log.Printf("MQTT Engine: removed topic %s. Engine now has %d topics", topic, len(me.TopicData))
-	return me.TopicData, nil
+    me.DataMu.Unlock()
+	return nil
 }
 
 func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkgOut, chan MqttPkgIn, error) {
@@ -602,14 +621,20 @@ func (me *MqttEngine) SetupInterruptHandler() {
 }
 
 func (me *MqttEngine) FetchTopicData(topic string) (TopicData, error) {
-	if td, exist := me.TopicData[topic]; exist {
-		log.Printf("MQTT Engine %s: topic %s: exact match found. TopicData: %+v", me.Creator, topic, td)
+    me.DataMu.Lock()
+    td, exist := me.TopicData[topic]
+    me.DataMu.Unlock()
+	if exist {
+		log.Printf("MQTT Engine %s: topic %s: exact match found.", me.Creator, topic)
 		return td, nil
 	}
 	for prefix := range me.PrefixTopics {
 		if strings.HasPrefix(topic, prefix) {
+            me.DataMu.Lock()
+            tdPrefix := me.TopicData[topic]
 			log.Printf("MQTT Engine %s: topic %s matches prefix %s. TopicData: %+v", me.Creator, topic, prefix, me.TopicData[prefix])
-			return me.TopicData[prefix+"#"], nil
+            me.DataMu.Unlock()
+			return tdPrefix, nil
 		}
 	}
 	return TopicData{}, fmt.Errorf("FetchTopicData: topic %s not found", topic)
