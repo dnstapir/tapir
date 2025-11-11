@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"log"
 	"net/http"
+    "sync"
 	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
@@ -296,6 +297,7 @@ type MqttEngine struct {
 	CmdChan           chan MqttEngineCmd
 	PublishChan       chan MqttPkgOut
 	SubscribeChan     chan MqttPkgIn
+    DataMu            sync.Mutex
 	TopicData         map[string]TopicData // map[topic]TopicData
 	PrefixTopics      map[string]bool      // eg. "pubkey/up/" is a prefix topic if we subscribe to pubkey/up/#
 	CanPublish        bool                 // can publish to all topics
