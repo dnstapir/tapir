@@ -570,7 +570,7 @@ func (me *MqttEngine) StartEngine() (chan MqttEngineCmd, chan MqttPkgOut, chan M
 	r := <-resp
 	if r.Error {
 		log.Printf("Error: error: %s", r.ErrorMsg)
-		return me.CmdChan, me.PublishChan, me.SubscribeChan, fmt.Errorf(r.ErrorMsg)
+		return me.CmdChan, me.PublishChan, me.SubscribeChan, fmt.Errorf("erroneous mqtt engine response to start command")
 	}
 	return me.CmdChan, me.PublishChan, me.SubscribeChan, nil
 }
@@ -581,7 +581,7 @@ func (me *MqttEngine) StopEngine() (chan MqttEngineCmd, error) {
 	r := <-resp
 	if r.Error {
 		log.Printf("Error: error: %s", r.ErrorMsg)
-		return me.CmdChan, fmt.Errorf(r.ErrorMsg)
+		return me.CmdChan, fmt.Errorf("erroneous mqtt engine response to stop command")
 	}
 	return me.CmdChan, nil
 }
@@ -592,7 +592,7 @@ func (me *MqttEngine) RestartEngine() (chan MqttEngineCmd, error) {
 	r := <-resp
 	if r.Error {
 		log.Printf("Error: error: %s", r.ErrorMsg)
-		return me.CmdChan, fmt.Errorf(r.ErrorMsg)
+		return me.CmdChan, fmt.Errorf("erroneous mqtt engine response to restart command")
 	}
 	return me.CmdChan, nil
 }
