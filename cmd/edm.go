@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ryanuber/columnize"
 	"github.com/spf13/cobra"
@@ -33,8 +34,13 @@ var EdmStatsCmd = &cobra.Command{
 		// Get the metrics endpoint URL (hardcoded in EDM as 127.0.0.1:2112)
 		metricsURL := "http://127.0.0.1:2112/metrics"
 
+		// Create HTTP client with timeout
+		client := &http.Client{
+			Timeout: time.Second * 4,
+		}
+
 		// Make HTTP GET request
-		resp, err := http.Get(metricsURL)
+		resp, err := client.Get(metricsURL)
 		if err != nil {
 			log.Fatalf("Error connecting to EDM metrics endpoint at %s: %v\n"+
 				"Is EDM running?", metricsURL, err)
