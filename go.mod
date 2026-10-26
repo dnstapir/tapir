@@ -1,6 +1,6 @@
 module github.com/dnstapir/tapir
 
-go 1.24.0
+go 1.27.3
 
 require (
 	github.com/eclipse/paho.golang v0.21.0

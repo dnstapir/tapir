@@ -66,8 +66,8 @@ var debugGenRpzCmd = &cobra.Command{
 
 		fmt.Printf("Received %d bytes of data\n", len(resp.Msg))
 
-		fmt.Printf("deny count=%d: %v\n", resp.DenylistedNames)
-		fmt.Printf("doubt count=%d: %v\n", resp.DoubtlistedNames)
+		fmt.Printf("deny count=%d: %v\n", len(resp.DenylistedNames), resp.DenylistedNames)
+		fmt.Printf("doubt count=%d: %v\n", len(resp.DenylistedNames), resp.DoubtlistedNames)
 		//	    	fmt.Printf("count=%d: %v\n", res.RpzOutput)
 		for _, tn := range resp.RpzOutput {
 			fmt.Printf("%s\n", (*tn.RR).String())
